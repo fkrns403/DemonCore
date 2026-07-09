@@ -34,9 +34,19 @@ public class PlayerController : MonoBehaviour
     {
         inputReader.ReadInput();
 
-        UpdateStateForTest();
         UpdateMovement();
+        UpdateStateForTest();
         UpdateUtilityInputForTest();
+    }
+
+    private void UpdateMovement()
+    {
+        if (!CanUseInputMovement())
+        {
+            playerMovement.Move(Vector2.zero, false, false);
+            return;
+        }
+        playerMovement.Move(inputReader.MoveInput, inputReader.SprintHeld, inputReader.JumpPressed);
     }
 
     private void UpdateStateForTest()
@@ -58,12 +68,6 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        if (inputReader.JumpPressed)
-        {
-            ChangeState(PlayerState.Jump);
-            return;
-        }
-
         if (inputReader.GuardHeld)
         {
             ChangeState(PlayerState.Guard);
@@ -82,6 +86,18 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
+        if (playerMovement.IsRising)
+        {
+            ChangeState(PlayerState.Jump);
+            return;
+        }
+
+        if (playerMovement.IsFalling)
+        {
+             ChangeState(PlayerState.Fall);
+            return;
+        }
+
         if (inputReader.MoveInput.sqrMagnitude > 0.01f)
         {
             ChangeState(PlayerState.Move);
@@ -91,14 +107,7 @@ public class PlayerController : MonoBehaviour
         ChangeState(PlayerState.Idle);
     }
 
-    private void UpdateMovement()
-    {
-        if (!CanUseInputMovement())
-        {
-            return;
-        }
-        playerMovement.Move(inputReader.MoveInput, inputReader.SprintHeld);
-    }
+    
 
     private bool CanUseInputMovement()
     {

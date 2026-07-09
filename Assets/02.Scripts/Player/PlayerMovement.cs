@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 /// <summary>
 /// 플레이어 이동처리 담당
@@ -15,11 +16,26 @@ public class PlayerMovement : MonoBehaviour
     private float sprintSpeed = 6.5f;
     [SerializeField, Tooltip("플레이어 회전 속도")]
     private float rotationSpeed = 720f;
+    [Header("Jump/Gravity")]
+    [SerializeField,Tooltip("점프 최대 높이")]
+    private float jumpHeight = 1.2f;
+    [SerializeField, Tooltip("플레이어에게 적용할 중력 값")]
+    private float gravity = -20f;
+    [SerializeField, Tooltip("지면 접촉상태시 하강속도")]
+    private float groundedGravity = -2f;
     [Header("Reference")]
     [SerializeField, Tooltip("이동 방향 기준이 되는 카메라 위치")]
     private Transform camerTransform;
 
     private CharacterController characterController;
+    private float verticalVelocity;
+
+    public bool IsGrounded { get; private set; }
+    // 지면 접촉 여부
+    public bool IsRising => !IsGrounded && verticalVelocity > 0f;
+    // 플레이어 상승 상태인지
+    public bool IsFalling => !IsGrounded && verticalVelocity <= 0f;
+    // 플레이어가 낙하 상태인지
 
     private void Awake()
     {
@@ -30,7 +46,7 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    public void Move(Vector2 moveInput, bool isSprinting)
+    public void Move(Vector2 moveInput, bool isSprinting, bool jumpPressed)
     {
         if (camerTransform == null)
         {
@@ -38,17 +54,53 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
 
-        Vector3 moveDirection = CalculateCamerRelativeDirection(moveInput);
+        UpdateGroindedState();
+        ApplyJump(jumpPressed);
+        ApplyGravity();
 
-        if (moveDirection.sqrMagnitude <= 0.01f)
+        Vector3 horizontalDirection = CalculateCamerRelativeDirection(moveInput);
+        float currentSpeed = isSprinting ? sprintSpeed : walkSpeed;
+
+        Vector3 velocity = horizontalDirection * currentSpeed;
+        velocity.y = verticalVelocity;
+
+        characterController.Move(velocity * Time.deltaTime);
+
+        if (horizontalDirection.sqrMagnitude > 0.01f)
+        {
+            RotateToMoveDirection(horizontalDirection);
+        }
+
+        
+
+    }
+
+    private void UpdateGroindedState()
+    {
+        IsGrounded = characterController.isGrounded;
+        if (IsGrounded && verticalVelocity < 0f)
+        {
+            verticalVelocity = groundedGravity;
+        }
+    }
+
+    private void ApplyJump(bool jumpPressed)
+    {
+        if (!jumpPressed)
+        {
+            return;
+        }
+        if (!IsGrounded)
         {
             return;
         }
 
-        float currentSpeed = isSprinting ? sprintSpeed : walkSpeed;
-        Vector3 moveAmount = moveDirection * currentSpeed * Time.deltaTime;
-        characterController.Move(moveAmount);
-        RotateToMoveDirection(moveDirection);
+        verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
+    }
+
+    private void ApplyGravity()
+    {
+        verticalVelocity += gravity * Time.deltaTime;
     }
 
     private Vector3 CalculateCamerRelativeDirection(Vector2 moveInput)
@@ -74,7 +126,7 @@ public class PlayerMovement : MonoBehaviour
     {
         Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
 
-        transform.rotation = Quaternion.RotateTowards(transform.rotation,targetRotation,rotationSpeed *Time.deltaTime);
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
     }
 
 }
