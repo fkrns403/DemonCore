@@ -34,9 +34,23 @@ public class PlayerController : MonoBehaviour
     {
         inputReader.ReadInput();
 
+        TryStartDodge();
         UpdateMovement();
         UpdateStateForTest();
         UpdateUtilityInputForTest();
+    }
+
+    private void TryStartDodge()
+    {
+        if (!inputReader.DodgePressed)
+        {
+            return;
+        }
+
+        if (playerMovement.TryStartDodge(inputReader.MoveInput))
+        {
+            ChangeState(PlayerState.Dodge);
+        }
     }
 
     private void UpdateMovement()

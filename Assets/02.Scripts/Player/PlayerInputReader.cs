@@ -8,6 +8,9 @@ using UnityEngine.InputSystem;
 
 public class PlayerInputReader : MonoBehaviour
 {
+    [SerializeField,Tooltip("shift를 이 시간보다 짧게 눌렀으면 회피처리")]
+    private float dodgeTapTime = 0.2f;
+
     public Vector2 MoveInput {  get; private set; }
     // w,a,s,d 를 x,y값으로
     public bool JumpPressed {  get; private set; }
@@ -30,6 +33,8 @@ public class PlayerInputReader : MonoBehaviour
     public bool LockOnPressed { get; private set; }
     // 록온
 
+    private bool shiftWasHeld;
+    private float shiftHoldTimer;
 
 
 
@@ -37,11 +42,14 @@ public class PlayerInputReader : MonoBehaviour
     {
         Keyboard keyboard = Keyboard.current;
         Mouse mouse = Mouse.current;
-        ResetInput();
+
+        ResetFrameInput();
+
         if (keyboard == null)
         {
             return;
         }
+
         ReadMoveInput(keyboard);
         ReadMovementActionInput(keyboard);
         ReadCombatInput(keyboard,mouse);
@@ -50,11 +58,11 @@ public class PlayerInputReader : MonoBehaviour
     }
 
 
-    private void ResetInput()
+    private void ResetFrameInput()
     {
         MoveInput = Vector2.zero;
+
         JumpPressed = false;
-        SprintHeld = false;
         DodgePressed = false;
 
         LightAttackPressed = false;
@@ -66,12 +74,15 @@ public class PlayerInputReader : MonoBehaviour
         InteractPressed = false;
         ScanPressed = false;
         LockOnPressed = false;
+
+        SprintHeld = false;
     }
 
     private void ReadMoveInput(Keyboard keyboard)
     {
         float x = 0f;
         float y = 0f;
+
         if (keyboard.aKey.isPressed)
         {
             x -= 1f;
@@ -88,12 +99,14 @@ public class PlayerInputReader : MonoBehaviour
         {
             y += 1f;
         }
+
         Vector2 rawMoveInput = new Vector2(x, y);
 
         if (rawMoveInput.sqrMagnitude > 1f)
         {
             rawMoveInput.Normalize();
         }
+
         MoveInput = rawMoveInput;
 
     }
@@ -101,8 +114,32 @@ public class PlayerInputReader : MonoBehaviour
     private void ReadMovementActionInput(Keyboard keyboard)
     {
         JumpPressed = keyboard.spaceKey.wasPressedThisFrame;
-        SprintHeld = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
-        DodgePressed = keyboard.leftShiftKey.wasPressedThisFrame || keyboard.rightShiftKey.wasPressedThisFrame;
+
+        bool shiftHeld = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
+
+        if (shiftHeld)
+        {
+            shiftHoldTimer += Time.deltaTime;
+            shiftWasHeld = true;
+
+            if (shiftHoldTimer >= dodgeTapTime)
+            {
+                SprintHeld = true;
+            }
+
+            return;
+        }
+
+        if (shiftWasHeld)
+        {
+            if (shiftHoldTimer > 0f && shiftHoldTimer < dodgeTapTime)
+            {
+                DodgePressed = true;
+            }
+
+            shiftHoldTimer = 0f;
+            shiftWasHeld = false;
+        }
     }
 
 
