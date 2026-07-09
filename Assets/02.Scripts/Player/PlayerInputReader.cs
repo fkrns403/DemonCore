@@ -16,33 +16,62 @@ public class PlayerInputReader : MonoBehaviour
     // 대쉬
     public bool DodgePressed {  get; private set; }
     // 회피키
-    public bool AttackPressed {  get; private set; }
-    // 공격키
-    public bool GuardHeld {  get; private set; }
-    // 가드
-    public bool ParryPressed { get; private set; }
-    // 패링
-    public bool InteractPressed {  get; private set; }
-    // 상호작용
-    public bool ScanPressed {  get; private set; }
+    public bool LightAttackPressed { get; private set; }
+    // 마우스 좌클릭 공격
+    public bool HeavyAttackPressed { get; private set; }
+    // 강공 우클릭
+    public bool GuardPressed { get; private set; }
+    public bool GuardHeld { get; private set; }
+    // 방어
+    public bool InteractPressed { get; private set; }
+    // 상호 작용키
+    public bool ScanPressed { get; private set; }
+    // 스켄 기능
+    public bool LockOnPressed { get; private set; }
+    // 록온
+
+
 
 
     public void ReadInput()
     {
         Keyboard keyboard = Keyboard.current;
         Mouse mouse = Mouse.current;
-        //임시 입력처리
-        ReadInput();
-        // 임시 입력 초기화
-
+        ResetInput();
         if (keyboard == null)
         {
             return;
         }
+        ReadMoveInput(keyboard);
+        ReadMovementActionInput(keyboard);
+        ReadCombatInput(keyboard,mouse);
+        ReadInteractionInput(keyboard);
+        ReadUtilityInput(keyboard);
+    }
 
+
+    private void ResetInput()
+    {
+        MoveInput = Vector2.zero;
+        JumpPressed = false;
+        SprintHeld = false;
+        DodgePressed = false;
+
+        LightAttackPressed = false;
+        HeavyAttackPressed = false;
+
+        GuardPressed = false;
+        GuardHeld = false;
+
+        InteractPressed = false;
+        ScanPressed = false;
+        LockOnPressed = false;
+    }
+
+    private void ReadMoveInput(Keyboard keyboard)
+    {
         float x = 0f;
         float y = 0f;
-
         if (keyboard.aKey.isPressed)
         {
             x -= 1f;
@@ -51,46 +80,53 @@ public class PlayerInputReader : MonoBehaviour
         {
             x += 1f;
         }
-        if (keyboard.wKey.isPressed)
-        {
-            y += 1f;
-        }
         if (keyboard.sKey.isPressed)
         {
             y -= 1f;
         }
-        //임시 입력처리
-
+        if (keyboard.wKey.isPressed)
+        {
+            y += 1f;
+        }
         Vector2 rawMoveInput = new Vector2(x, y);
 
         if (rawMoveInput.sqrMagnitude > 1f)
         {
             rawMoveInput.Normalize();
         }
-
         MoveInput = rawMoveInput;
 
-        
-
     }
 
-    private void ResetInput()
+    private void ReadMovementActionInput(Keyboard keyboard)
     {
-        MoveInput = Vector2.zero;
-
-        JumpPressed = false;
-        SprintHeld = false;
-        DodgePressed = false;
-
-        AttackPressed = false;
-        GuardHeld = false;
-        ParryPressed = false;
-
-        InteractPressed = false;
-        ScanPressed = false;
+        JumpPressed = keyboard.spaceKey.wasPressedThisFrame;
+        SprintHeld = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
+        DodgePressed = keyboard.leftShiftKey.wasPressedThisFrame || keyboard.rightShiftKey.wasPressedThisFrame;
     }
 
 
+    private void ReadCombatInput(Keyboard keyboard, Mouse mouse)
+    {
+        GuardPressed = keyboard.qKey.wasPressedThisFrame;
+        GuardHeld = keyboard.qKey.isPressed;
+        if (mouse == null)
+        {
+            return;
+        }
+        LightAttackPressed = mouse.leftButton.wasPressedThisFrame;
+        HeavyAttackPressed = mouse.rightButton.wasPressedThisFrame;
+    }
 
+   private void ReadInteractionInput(Keyboard keyboard)
+    {
+        InteractPressed = keyboard.fKey.wasPressedThisFrame;
+    }
+
+    private void ReadUtilityInput(Keyboard keyboard)
+    {
+        ScanPressed = keyboard.rKey.wasPressedThisFrame;
+        LockOnPressed = keyboard.tabKey.wasPressedThisFrame;
+    }
     
 }
