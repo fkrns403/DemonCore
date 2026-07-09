@@ -8,6 +8,7 @@ using UnityEngine;
 /// 
 /// </summary>
 [RequireComponent(typeof(PlayerInputReader))]
+[RequireComponent(typeof(PlayerMovement))]
 public class PlayerController : MonoBehaviour
 {
     [Header("Debug")]
@@ -15,6 +16,7 @@ public class PlayerController : MonoBehaviour
     private bool showDebugLog = true;
 
     private PlayerInputReader inputReader;
+    private PlayerMovement playerMovement;
     private PlayerState currentState;
     
     public PlayerState CurrentState => currentState;
@@ -23,6 +25,8 @@ public class PlayerController : MonoBehaviour
     private void Awake()
     {
         inputReader = GetComponent<PlayerInputReader>();
+        playerMovement = GetComponent<PlayerMovement>();
+
         ChangeState(PlayerState.Idle);
     }
 
@@ -31,6 +35,7 @@ public class PlayerController : MonoBehaviour
         inputReader.ReadInput();
 
         UpdateStateForTest();
+        UpdateMovement();
         UpdateUtilityInputForTest();
     }
 
@@ -84,6 +89,32 @@ public class PlayerController : MonoBehaviour
         }
 
         ChangeState(PlayerState.Idle);
+    }
+
+    private void UpdateMovement()
+    {
+        if (!CanUseInputMovement())
+        {
+            return;
+        }
+        playerMovement.Move(inputReader.MoveInput, inputReader.SprintHeld);
+    }
+
+    private bool CanUseInputMovement()
+    {
+        if (currentState == PlayerState.Dead)
+        {
+            return false;
+        }
+        if (currentState == PlayerState.Knockdown)
+        {
+            return false;
+        }
+        if (currentState == PlayerState.GetUp)
+        {
+            return false;
+        }
+        return true;
     }
 
     private void UpdateUtilityInputForTest()
