@@ -1,5 +1,5 @@
+using State;
 using UnityEngine;
-using UnityEngine.EventSystems;
 
 /// <summary>
 /// 플레이어 이동처리 담당
@@ -25,43 +25,64 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField, Tooltip("지면 접촉상태시 하강속도")]
     private float groundedGravity = -2f;
 
-    [Header("Dodge")]
+    [Header("Dodge/Backstep")]
     [SerializeField, Tooltip("회피중 이동 속도")]
-    private float dodgeSpeed = 10f;
-    [SerializeField, Tooltip("회피 지속시간")]
-    private float dodgeDuration = 0.22f;
+    private float backstepSpeed = 10f;
+    [SerializeField, Tooltip("기본 백스탭 지속시간")]
+    private float backstepDuration = 0.22f;
+
+    [Header("Dodge/side Backstep")]
+    [SerializeField, Tooltip("백스텝 좌우이동 속도")]
+    private float sideBackstepSpeed = 10.5f;
+    [SerializeField, Tooltip("백스텝 좌우이동 지속시간")]
+    private float sideBackstepDuration = 0.24f;
+    [SerializeField, Tooltip("좌우 회피에서 좌우 방향이 차지하는 비율.")]
+    private float sideDirectionWeight = 0.65f;
+    [SerializeField, Tooltip("좌우 회피에서 후방 방향이 차지하는 비율")]
+    private float sideBackDirectionWeight = 0.35f;
+
+    [Header("Dodge - Disengage")]
+    [SerializeField, Tooltip("S + 회피로 발동하는 전투 이탈기 속도입니다.")]
+    private float disengageSpeed = 11f;
+    [SerializeField, Tooltip("S + 회피로 발동하는 전투 이탈기 지속 시간입니다.")]
+    private float disengageDuration = 0.32f;
 
     [Header("Reference")]
     [SerializeField, Tooltip("이동 방향 기준이 되는 카메라 위치")]
-    private Transform camerTransform;
+    private Transform cameraTransform;
 
     private CharacterController characterController;
     private float verticalVelocity;
 
-    private bool isDodgeing;
+    private bool isDodging;
     private float dodgeTimer;
+    private float currrentDodgeSpeed;
     private Vector3 dodgeDirection;
+    private DodgeType currentDodgeType;
 
     public bool IsGrounded { get; private set; }
     // 지면 접촉 여부
-    public bool IsDodging => isDodgeing;
+    public bool IsDodging => isDodging;
     public bool IsRising => !IsGrounded && verticalVelocity > 0f;
     // 플레이어 상승 상태인지
     public bool IsFalling => !IsGrounded && verticalVelocity <= 0f;
     // 플레이어가 낙하 상태인지
+    public DodgeType CurrentDodgeType => currentDodgeType; 
+
+    
 
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
-        if (camerTransform == null && Camera.main != null)
+        if (cameraTransform == null && Camera.main != null)
         {
-            camerTransform = Camera.main.transform;
+            cameraTransform = Camera.main.transform;
         }
     }
 
     public void Move(Vector2 moveInput, bool isSprinting, bool jumpPressed)
     {
-        if (camerTransform == null)
+        if (cameraTransform == null)
         {
             Debug.LogWarning("playerMovement : cameratransfrom이 지정되지 않았습니다");
             return;
@@ -70,7 +91,7 @@ public class PlayerMovement : MonoBehaviour
         UpdateGroindedState();
         ApplyGravity();
 
-        if (isDodgeing)
+        if (isDodging)
         {
             UpdateDodge();
             return;
@@ -95,9 +116,11 @@ public class PlayerMovement : MonoBehaviour
 
     }
 
-    public bool TryStartDodge(Vector2 moveInput)
+    public bool TryStartDodge(Vector2 moveInput, float bufferedSideInput)
     {
-        if (isDodgeing)
+        UpdateGroindedState();
+
+        if (isDodging)
         {
             return false;
         }
@@ -106,37 +129,111 @@ public class PlayerMovement : MonoBehaviour
             return false;
         }
 
-        dodgeDirection = CalcuteDodgeDirection(moveInput);
-        dodgeTimer = dodgeDuration;
-        isDodgeing = true;
 
-        RotateToMoveDirection(dodgeDirection);
+        currentDodgeType = DecideDodgeType(moveInput, bufferedSideInput);
+        dodgeDirection = CalculateDodgeDirection(currentDodgeType, moveInput, bufferedSideInput);
+
+        ApplyDodgeSetting(currentDodgeType);
+
+        isDodging = true;
+
         return true;
+    }
+
+    private DodgeType DecideDodgeType(Vector2 moveInput, float bufferedSideInput)
+    {
+        if (Mathf.Abs(bufferedSideInput) > 0.01f || Mathf.Abs(moveInput.x) > 0.01f)
+        {
+            return DodgeType.SideBackstep;
+        }
+
+        if (moveInput.y < -0.1f)
+        {
+            return DodgeType.Disengage;
+        }
+
+        return DodgeType.Backstep;
+    }
+
+    private Vector3 CalculateDodgeDirection(DodgeType dodgeType, Vector2 moveInput, float bufferedSideInput)
+    {
+        Vector3 backDirection = -transform.forward;
+
+        switch (dodgeType)
+        {
+            case DodgeType.SideBackstep:
+                return CalculateSideBackstepDirection(moveInput, bufferedSideInput, backDirection);
+
+            case DodgeType.Disengage:
+                return backDirection;
+
+            case DodgeType.Backstep:
+            default:
+                return backDirection;
+        }
+    }
+
+    private Vector3 CalculateSideBackstepDirection(Vector2 moveInput, float bufferedSideInput, Vector3 backDirection)
+    {
+        float sideSign = 0f;
+
+        if (Mathf.Abs(moveInput.x) > 0.01f)
+        {
+            sideSign = Mathf.Sign(moveInput.x);
+        }
+        else
+        {
+            sideSign = Mathf.Sign(bufferedSideInput);
+        }
+
+        Vector3 cameraRight = cameraTransform.right;
+        cameraRight.y = 0f;
+        cameraRight.Normalize();
+
+        Vector3 sideDirection = cameraRight * sideSign;
+
+        return (sideDirection * sideDirectionWeight + backDirection * sideBackDirectionWeight).normalized;
+    }
+
+    private void ApplyDodgeSetting(DodgeType dodgeType)
+    {
+        switch (dodgeType)
+        {
+            case DodgeType.SideBackstep:
+                currrentDodgeSpeed = sideBackstepSpeed;
+                dodgeTimer = sideBackstepDuration;
+                break;
+            case DodgeType.Disengage:
+                currrentDodgeSpeed = disengageSpeed;
+                dodgeTimer = disengageDuration;
+                break;
+            case DodgeType.Backstep:
+            default:
+                currrentDodgeSpeed = backstepSpeed;
+                dodgeTimer = backstepDuration;
+                break;
+        }
     }
 
     private void UpdateDodge()
     {
         dodgeTimer -= Time.deltaTime;
 
-        Vector3 velocity = dodgeDirection * dodgeSpeed;
+        Vector3 velocity = dodgeDirection * currrentDodgeSpeed;
         velocity.y = verticalVelocity;
 
         characterController.Move(velocity * Time.deltaTime);
 
         if (dodgeTimer <= 0f)
         {
-            isDodgeing = false;
+            EndDodge();
         }
     }
 
-    private Vector3 CalcuteDodgeDirection(Vector2 moveInput)
+    private void EndDodge()
     {
-        Vector3 inputDirection = CalculateCamerRelativeDirection(moveInput);
-        if (inputDirection.sqrMagnitude > 0.01f)
-        {
-            return inputDirection;
-        }
-        return -transform.forward;
+        isDodging = false;
+        currentDodgeType = DodgeType.None;
     }
 
     /// <summary>
@@ -185,8 +282,8 @@ public class PlayerMovement : MonoBehaviour
     /// <returns>카메라 기준 월드 이동 방향</returns>
     private Vector3 CalculateCamerRelativeDirection(Vector2 moveInput)
     {
-        Vector3 cameraForward = camerTransform.forward;
-        Vector3 cameraRight = camerTransform.right;
+        Vector3 cameraForward = cameraTransform.forward;
+        Vector3 cameraRight = cameraTransform.right;
 
         cameraForward.y = 0f;
         cameraRight.y = 0f;

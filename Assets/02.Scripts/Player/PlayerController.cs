@@ -47,7 +47,7 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        if (playerMovement.TryStartDodge(inputReader.MoveInput))
+        if (playerMovement.TryStartDodge(inputReader.MoveInput, inputReader.BufferedSideInput))
         {
             ChangeState(PlayerState.Dodge);
         }
@@ -70,15 +70,15 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        if (inputReader.LightAttackPressed || inputReader.HeavyAttackPressed)
+        if (playerMovement.IsDodging)
         {
-            ChangeState(PlayerState.Attack);
+            ChangeState(PlayerState.Dodge);
             return;
         }
 
-        if (inputReader.DodgePressed)
+        if (inputReader.LightAttackPressed || inputReader.HeavyAttackPressed)
         {
-            ChangeState(PlayerState.Dodge);
+            ChangeState(PlayerState.Attack);
             return;
         }
 

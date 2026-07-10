@@ -8,8 +8,11 @@ using UnityEngine.InputSystem;
 
 public class PlayerInputReader : MonoBehaviour
 {
+    [Header("Input Timing")]
     [SerializeField,Tooltip("shift를 이 시간보다 짧게 눌렀으면 회피처리")]
     private float dodgeTapTime = 0.2f;
+    [SerializeField,Tooltip("좌우 입력을 회피 판정까지 버퍼에 담는 시간")]
+    private float sideInputBufferTime = 0.15f;
 
     public Vector2 MoveInput {  get; private set; }
     // w,a,s,d 를 x,y값으로
@@ -33,10 +36,23 @@ public class PlayerInputReader : MonoBehaviour
     public bool LockOnPressed { get; private set; }
     // 록온
 
+    public float BufferedSideInput
+    {
+        get
+        {
+            if (sideInputBufferTimer > 0f)
+            {
+                return lastSideInput;
+            }
+            return 0f;
+        }
+    }
+
     private bool shiftWasHeld;
     private float shiftHoldTimer;
 
-
+    private float lastSideInput;
+    private float sideInputBufferTimer;
 
     public void ReadInput()
     {
@@ -44,6 +60,8 @@ public class PlayerInputReader : MonoBehaviour
         Mouse mouse = Mouse.current;
 
         ResetFrameInput();
+        UpdateInputBuffers();
+        
 
         if (keyboard == null)
         {
@@ -63,6 +81,7 @@ public class PlayerInputReader : MonoBehaviour
         MoveInput = Vector2.zero;
 
         JumpPressed = false;
+        SprintHeld = false;
         DodgePressed = false;
 
         LightAttackPressed = false;
@@ -74,8 +93,15 @@ public class PlayerInputReader : MonoBehaviour
         InteractPressed = false;
         ScanPressed = false;
         LockOnPressed = false;
+        
+    }
 
-        SprintHeld = false;
+    private void UpdateInputBuffers()
+    {
+        if (sideInputBufferTimer > 0f)
+        {
+            sideInputBufferTimer -= Time.deltaTime;
+        }
     }
 
     private void ReadMoveInput(Keyboard keyboard)
@@ -108,6 +134,12 @@ public class PlayerInputReader : MonoBehaviour
         }
 
         MoveInput = rawMoveInput;
+
+        if (Mathf.Abs(x) > 0.01f)
+        {
+            lastSideInput = Mathf.Sign(x);
+            sideInputBufferTimer = sideInputBufferTime;
+        }
 
     }
 
