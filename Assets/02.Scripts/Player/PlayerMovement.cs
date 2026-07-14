@@ -36,10 +36,7 @@ public class PlayerMovement : MonoBehaviour
     private float sideBackstepSpeed = 10.5f;
     [SerializeField, Tooltip("백스텝 좌우이동 지속시간")]
     private float sideBackstepDuration = 0.24f;
-    [SerializeField, Tooltip("좌우 회피에서 좌우 방향이 차지하는 비율.")]
-    private float sideDirectionWeight = 0.65f;
-    [SerializeField, Tooltip("좌우 회피에서 후방 방향이 차지하는 비율")]
-    private float sideBackDirectionWeight = 0.35f;
+    
 
     [Header("Dodge - Disengage")]
     [SerializeField, Tooltip("S + 회피로 발동하는 전투 이탈기 속도입니다.")]
@@ -52,6 +49,7 @@ public class PlayerMovement : MonoBehaviour
     private Transform cameraTransform;
 
     private CharacterController characterController;
+
     private float verticalVelocity;
 
     private bool isDodging;
@@ -131,7 +129,7 @@ public class PlayerMovement : MonoBehaviour
 
 
         currentDodgeType = DecideDodgeType(moveInput, bufferedSideInput);
-        dodgeDirection = CalculateDodgeDirection(currentDodgeType, moveInput, bufferedSideInput);
+        dodgeDirection = CalculateDodgeDirection(currentDodgeType);
 
         ApplyDodgeSetting(currentDodgeType);
 
@@ -142,9 +140,25 @@ public class PlayerMovement : MonoBehaviour
 
     private DodgeType DecideDodgeType(Vector2 moveInput, float bufferedSideInput)
     {
-        if (Mathf.Abs(bufferedSideInput) > 0.01f || Mathf.Abs(moveInput.x) > 0.01f)
+        float sideInput = 0f;
+
+        if (Mathf.Abs(moveInput.x) > 0.01f)
         {
-            return DodgeType.SideBackstep;
+            sideInput = moveInput.x;
+        }
+        else if (Mathf.Abs(bufferedSideInput) > 0.01f)
+        {
+            sideInput = bufferedSideInput;
+        }
+
+        if (sideInput < -0.01f)
+        {
+            return DodgeType.SideBackstepLeft;
+        }
+
+        if (sideInput > 0.01f)
+        {
+            return DodgeType.SideBackstepRight;
         }
 
         if (moveInput.y < -0.1f)
@@ -155,14 +169,23 @@ public class PlayerMovement : MonoBehaviour
         return DodgeType.Backstep;
     }
 
-    private Vector3 CalculateDodgeDirection(DodgeType dodgeType, Vector2 moveInput, float bufferedSideInput)
+    private Vector3 CalculateDodgeDirection(DodgeType dodgeType)
     {
         Vector3 backDirection = -transform.forward;
+        Vector3 rightDirection = transform.right;
+
+        backDirection.y = 0f;
+        rightDirection.y = 0f;
+
+        backDirection.Normalize();
+        rightDirection.Normalize();
 
         switch (dodgeType)
         {
-            case DodgeType.SideBackstep:
-                return CalculateSideBackstepDirection(moveInput, bufferedSideInput, backDirection);
+            case DodgeType.SideBackstepLeft:
+                return -rightDirection;
+            case DodgeType.SideBackstepRight:
+                return rightDirection;
 
             case DodgeType.Disengage:
                 return backDirection;
@@ -173,33 +196,12 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    private Vector3 CalculateSideBackstepDirection(Vector2 moveInput, float bufferedSideInput, Vector3 backDirection)
-    {
-        float sideSign = 0f;
-
-        if (Mathf.Abs(moveInput.x) > 0.01f)
-        {
-            sideSign = Mathf.Sign(moveInput.x);
-        }
-        else
-        {
-            sideSign = Mathf.Sign(bufferedSideInput);
-        }
-
-        Vector3 cameraRight = cameraTransform.right;
-        cameraRight.y = 0f;
-        cameraRight.Normalize();
-
-        Vector3 sideDirection = cameraRight * sideSign;
-
-        return (sideDirection * sideDirectionWeight + backDirection * sideBackDirectionWeight).normalized;
-    }
-
     private void ApplyDodgeSetting(DodgeType dodgeType)
     {
         switch (dodgeType)
         {
-            case DodgeType.SideBackstep:
+            case DodgeType.SideBackstepLeft:
+            case DodgeType.SideBackstepRight:
                 currrentDodgeSpeed = sideBackstepSpeed;
                 dodgeTimer = sideBackstepDuration;
                 break;
@@ -248,7 +250,6 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-
     /// <summary>
     /// 점프 판정과 점프 속도
     /// </summary>
@@ -274,6 +275,7 @@ public class PlayerMovement : MonoBehaviour
     {
         verticalVelocity += gravity * Time.deltaTime;
     }
+    
 
     /// <summary>
     /// 입력값을 카메라 기준으로 이동 방향 처리

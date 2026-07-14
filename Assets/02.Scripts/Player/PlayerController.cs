@@ -15,12 +15,30 @@ public class PlayerController : MonoBehaviour
     [SerializeField,Tooltip("true면 상태 변경시 로그 생성")]
     private bool showDebugLog = true;
 
+    [Header("Action Lock")]
+    [SerializeField, Tooltip("공격 입력후 이동입력 락")]
+    private float lightAttackLockDuration = 0.35f;
+    [SerializeField, Tooltip("강공격 입력 후 일반 이동 방지 시간")]
+    private float heavyAttackLockDuration = 0.55f;
+
     private PlayerInputReader inputReader;
     private PlayerMovement playerMovement;
     private PlayerState currentState;
-    
+
+    private float attackLockTimer;
+    /// <summary>
+    /// 공격중 이동 방지
+    /// </summary>
     public PlayerState CurrentState => currentState;
     // 외부에서 읽기 전용
+    public bool IsAttackLocked => attackLockTimer > 0f;
+
+    public bool AttackStartedThisFrame {  get; private set; }
+    public bool HeavyAttackStartedThisFrame { get; private set; }
+
+    public bool DodgeStartedThisFrame { get; private set; }
+    public DodgeType StartedDodgeTypeThisFrame { get; private set; }
+
 
     private void Awake()
     {
@@ -34,14 +52,62 @@ public class PlayerController : MonoBehaviour
     {
         inputReader.ReadInput();
 
+        ResetFrameActionRequests();
+        UpdateActionTimers();
+
+        TryStartAttack();
         TryStartDodge();
+
         UpdateMovement();
         UpdateStateForTest();
         UpdateUtilityInputForTest();
     }
 
+
+    private void ResetFrameActionRequests()
+    {
+        AttackStartedThisFrame = false;
+        HeavyAttackStartedThisFrame = false;
+
+        DodgeStartedThisFrame = false;
+        StartedDodgeTypeThisFrame = DodgeType.None;
+    }
+    private void TryStartAttack()
+    {
+        bool attackPressed = inputReader.LightAttackPressed || inputReader.HeavyAttackPressed;
+
+        if (!attackPressed)
+        {
+            return;
+        }
+
+        if (IsAttackLocked)
+        {
+            return;
+        }
+
+        if (playerMovement.IsDodging)
+        {
+            return;
+        }
+
+        bool isHeavyAttack = inputReader.HeavyAttackPressed;
+
+        attackLockTimer = isHeavyAttack ? heavyAttackLockDuration : lightAttackLockDuration;
+
+        AttackStartedThisFrame = true;
+        HeavyAttackStartedThisFrame = isHeavyAttack;
+
+        ChangeState(PlayerState.Attack);
+    }
+
+
     private void TryStartDodge()
     {
+        if (IsAttackLocked)
+        {
+            return;
+        }
         if (!inputReader.DodgePressed)
         {
             return;
@@ -49,8 +115,22 @@ public class PlayerController : MonoBehaviour
 
         if (playerMovement.TryStartDodge(inputReader.MoveInput, inputReader.BufferedSideInput))
         {
+            DodgeStartedThisFrame = true;
+            StartedDodgeTypeThisFrame = playerMovement.CurrentDodgeType;
+
             ChangeState(PlayerState.Dodge);
         }
+    }
+
+    private void UpdateActionTimers()
+    {
+        if (attackLockTimer <= 0f)
+        {
+            attackLockTimer = 0f;
+            return;
+        }
+
+        attackLockTimer -= Time.deltaTime;
     }
 
     private void UpdateMovement()
@@ -76,7 +156,7 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        if (inputReader.LightAttackPressed || inputReader.HeavyAttackPressed)
+        if (IsAttackLocked)
         {
             ChangeState(PlayerState.Attack);
             return;
@@ -134,6 +214,10 @@ public class PlayerController : MonoBehaviour
             return false;
         }
         if (currentState == PlayerState.GetUp)
+        {
+            return false;
+        }
+        if (IsAttackLocked)
         {
             return false;
         }

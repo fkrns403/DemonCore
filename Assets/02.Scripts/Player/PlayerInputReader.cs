@@ -9,8 +9,6 @@ using UnityEngine.InputSystem;
 public class PlayerInputReader : MonoBehaviour
 {
     [Header("Input Timing")]
-    [SerializeField,Tooltip("shift를 이 시간보다 짧게 눌렀으면 회피처리")]
-    private float dodgeTapTime = 0.2f;
     [SerializeField,Tooltip("좌우 입력을 회피 판정까지 버퍼에 담는 시간")]
     private float sideInputBufferTime = 0.15f;
 
@@ -36,6 +34,10 @@ public class PlayerInputReader : MonoBehaviour
     public bool LockOnPressed { get; private set; }
     // 록온
 
+    private float lastSideInput;
+    private float sideInputBufferTimer;
+
+
     public float BufferedSideInput
     {
         get
@@ -48,12 +50,6 @@ public class PlayerInputReader : MonoBehaviour
         }
     }
 
-    private bool shiftWasHeld;
-    private float shiftHoldTimer;
-
-    private float lastSideInput;
-    private float sideInputBufferTimer;
-
     public void ReadInput()
     {
         Keyboard keyboard = Keyboard.current;
@@ -61,7 +57,7 @@ public class PlayerInputReader : MonoBehaviour
 
         ResetFrameInput();
         UpdateInputBuffers();
-        
+
 
         if (keyboard == null)
         {
@@ -70,11 +66,10 @@ public class PlayerInputReader : MonoBehaviour
 
         ReadMoveInput(keyboard);
         ReadMovementActionInput(keyboard);
-        ReadCombatInput(keyboard,mouse);
+        ReadCombatInput(keyboard, mouse);
         ReadInteractionInput(keyboard);
         ReadUtilityInput(keyboard);
     }
-
 
     private void ResetFrameInput()
     {
@@ -147,31 +142,9 @@ public class PlayerInputReader : MonoBehaviour
     {
         JumpPressed = keyboard.spaceKey.wasPressedThisFrame;
 
-        bool shiftHeld = keyboard.leftShiftKey.isPressed || keyboard.rightShiftKey.isPressed;
+        DodgePressed = keyboard.leftShiftKey.wasPressedThisFrame || keyboard.rightShiftKey.wasPressedThisFrame;
 
-        if (shiftHeld)
-        {
-            shiftHoldTimer += Time.deltaTime;
-            shiftWasHeld = true;
-
-            if (shiftHoldTimer >= dodgeTapTime)
-            {
-                SprintHeld = true;
-            }
-
-            return;
-        }
-
-        if (shiftWasHeld)
-        {
-            if (shiftHoldTimer > 0f && shiftHoldTimer < dodgeTapTime)
-            {
-                DodgePressed = true;
-            }
-
-            shiftHoldTimer = 0f;
-            shiftWasHeld = false;
-        }
+        SprintHeld = keyboard.leftCtrlKey.isPressed || keyboard.rightCtrlKey.isPressed;
     }
 
 
