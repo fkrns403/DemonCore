@@ -58,6 +58,19 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField, Tooltip("이동 방향 기준이 되는 카메라 위치")]
     private Transform cameraTransform;
 
+    [Header("Air Attack")]
+    [SerializeField, Tooltip("공중공격 중 체공을 유지하는 시간입니다.")]
+    private float airAttackDuration = 0.75f;
+
+    [SerializeField, Tooltip("공중공격 중 적용할 중력 배율입니다.")]
+    private float airAttackGravityMultiplier = 0.2f;
+
+    [SerializeField, Tooltip("공중공격 시작 시 하강 속도를 어느 정도까지 줄일지 결정합니다.")]
+    private float airAttackStartVerticalVelocity = -0.5f;
+
+    [SerializeField, Tooltip("공중공격 중 수평 이동 입력을 허용할지 여부입니다.")]
+    private bool allowAirAttackHorizontalControl = false;
+
     private CharacterController characterController;
 
     private float verticalVelocity;
@@ -68,8 +81,14 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 dodgeDirection;
     private DodgeType currentDodgeType;
 
+    private bool isAirAttacking;
+    private float airAttackTimer;
+
+    
+
     public bool IsGrounded { get; private set; }
     // 지면 접촉 여부
+    public bool IsAirAttacking => isAirAttacking;
     public bool IsDodging => isDodging;
     public bool IsRising => !IsGrounded && verticalVelocity > 0f;
     // 플레이어 상승 상태인지
@@ -97,6 +116,13 @@ public class PlayerMovement : MonoBehaviour
         }
 
         UpdateGroindedState();
+
+        if (isAirAttacking)
+        {
+            UpdateAirAttack(moveInput);
+            return;
+        }
+
         ApplyGravity();
 
         if (isDodging)
@@ -418,6 +444,79 @@ public class PlayerMovement : MonoBehaviour
         Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
 
         transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+    }
+
+    /// <summary>
+    /// 공중공격 상태처리
+    /// 실제 점프는 기존 점프와 중력 코드가 처리하고
+    /// 채공 낙하속도만 보정 처리
+    /// </summary>
+    /// <returns></returns>
+    public bool TryStartAirAttack()
+    {
+        UpdateGroindedState();
+
+        if (IsGrounded)
+        {
+            return false;
+        }
+
+        if (isAirAttacking)
+        {
+            return false;
+        }
+
+        if (isDodging)
+        {
+            return false;
+        }
+
+        isAirAttacking = true;
+        airAttackTimer = airAttackDuration;
+
+        if (verticalVelocity < airAttackStartVerticalVelocity)
+        {
+            verticalVelocity = airAttackStartVerticalVelocity;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 공중 공격중 중력처리 공격모션중 체공가능하도록해주는 함수
+    /// </summary>
+    /// <param name="moveInput"></param>
+    private void UpdateAirAttack(Vector2 moveInput)
+    {
+        airAttackTimer -= Time.deltaTime;
+
+        verticalVelocity += gravity * airAttackGravityMultiplier * Time.deltaTime;
+
+        Vector3 horizontalDirection = Vector3.zero;
+
+        if (allowAirAttackHorizontalControl)
+        {
+            horizontalDirection = CalculateCamerRelativeDirection(moveInput);
+        }
+
+        Vector3 velocity = horizontalDirection * walkSpeed;
+        velocity.y = verticalVelocity;
+
+        characterController.Move(velocity * Time.deltaTime);
+
+        if ((characterController.isGrounded && verticalVelocity <= 0f) || airAttackTimer <= 0f)
+        {
+            EndAirAttack();
+        }
+    }
+
+    /// <summary>
+    /// 공중공격 상태 초기화
+    /// </summary>
+    public void EndAirAttack()
+    {
+        isAirAttacking = false;
+        airAttackTimer = 0f;
     }
 
 }

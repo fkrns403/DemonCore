@@ -31,6 +31,8 @@ public class PlayerAnimatorController : MonoBehaviour
     private static readonly int AttackTriggerHash = Animator.StringToHash("AttackTrigger");
     private static readonly int DodgeTriggerHash = Animator.StringToHash("DodgeTrigger");
     private static readonly int DodgeTypeHash = Animator.StringToHash("DodgeType");
+    private static readonly int AttackTypeHash = Animator.StringToHash("AttackType");
+    private static readonly int ComboIndexHash = Animator.StringToHash("ComboIndex");
 
 
     private bool IsWeaponReady => weaponReadyTimer > 0;
@@ -91,6 +93,15 @@ public class PlayerAnimatorController : MonoBehaviour
         weaponReadyTimer -= Time.deltaTime;
     }
     /// <summary>
+    /// playerController에서 결정한 공격타입과 콤보 번호를 animator에 전달
+    /// </summary>
+    private void UpdateAttackAnimatorParametor()
+    {
+        animator.SetInteger(AttackTypeHash, (int)playerController.CurrentAttackType);
+        animator.SetInteger(ComboIndexHash, playerController.CurrentComboIndex);
+    }
+
+    /// <summary>
     /// 공격 입력이 들어오면 무기 준비 상태 여부에 따라
     /// 준비 자세 진입 또는 즉시 공격 애니메이션을 실행
     /// </summary>
@@ -105,6 +116,12 @@ public class PlayerAnimatorController : MonoBehaviour
         bool wasWeaponReady = IsWeaponReady;
 
         weaponReadyTimer = weaponReadyDuration;
+
+        Debug.Log(
+        $"Attack Animation Request : " +
+        $"{playerController.CurrentAttackType} / Combo {playerController.CurrentComboIndex}"
+    );
+
 
         if (wasWeaponReady)
         {

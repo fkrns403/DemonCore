@@ -7,6 +7,8 @@ using UnityEngine;
 [RequireComponent(typeof(Animator))]
 public class PlayerRootMotionRelay : MonoBehaviour
 {
+    [SerializeField, Tooltip("Root Motion delta 로그를 출력할지 여부입니다.")]
+    private bool showRootMotionLog = false;
     private Animator animator;
     private PlayerMovement playerMovement;
 
@@ -30,8 +32,13 @@ public class PlayerRootMotionRelay : MonoBehaviour
             return;
         }
 
-        Debug.Log($"RootMotion Delta Position : {animator.deltaPosition}, Delta Rotation : {animator.deltaRotation.eulerAngles}");
-
+        if (showRootMotionLog)
+        {
+            Debug.Log(
+                $"RootMotion Delta Position : {animator.deltaPosition}, " +
+                $"Delta Rotation : {animator.deltaRotation.eulerAngles}"
+            );
+        }
         playerMovement.ApplyAnimationRootMotion(
             animator.deltaPosition,
             animator.deltaRotation
