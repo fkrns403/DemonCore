@@ -284,10 +284,13 @@ MonoBehaviour:
   groundedGravity: -2
   backstepSpeed: 10
   backstepDuration: 0.22
+  useDodgeRootMotion: 1
+  useDodgeRootRotation: 1
   sideBackstepSpeed: 10.5
-  sideBackstepDuration: 0.24
+  sideBackstepDuration: 0.8
+  forwardCounterDuration: 0.75
   disengageSpeed: 11
-  disengageDuration: 0.32
+  disengageDuration: 1
   cameraTransform: {fileID: 0}
 --- !u!114 &603083818
 MonoBehaviour:
@@ -541,17 +544,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5866666021909216657, guid: 96a367363184df946889921f2f257339, type: 3}
       propertyPath: m_WarningMessage
-      value: "\nBinding warning: Some generic clip(s) animate transforms that are
-        already bound by a Humanoid avatar. These transforms can only be changed
-        by Humanoid clips.\n\tTransform 'mixamorig:Hips'\n\tTransform 'mixamorig:LeftFoot'\n\tTransform
-        'mixamorig:Spine1'\n\tTransform 'mixamorig:LeftToeBase'\n\tTransform 'mixamorig:RightArm'\n\tTransform
-        'mixamorig:LeftLeg'\n\tTransform 'mixamorig:LeftShoulder'\n\tTransform 'mixamorig:RightFoot'\n\tTransform
-        'mixamorig:Head'\n\tTransform 'mixamorig:LeftUpLeg'\n\tand more ...\n\tFrom
-        animation clip 'Walking'"
+      value: 
       objectReference: {fileID: 0}
     - target: {fileID: 5866666021909216657, guid: 96a367363184df946889921f2f257339, type: 3}
       propertyPath: m_ApplyRootMotion
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -563,6 +560,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 96a367363184df946889921f2f257339, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2030176773}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 96a367363184df946889921f2f257339, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2030176776}
   m_SourcePrefab: {fileID: 100100000, guid: 96a367363184df946889921f2f257339, type: 3}
 --- !u!1 &2030176771 stripped
 GameObject:
@@ -648,6 +648,18 @@ Animator:
   m_CorrespondingSourceObject: {fileID: 5866666021909216657, guid: 96a367363184df946889921f2f257339, type: 3}
   m_PrefabInstance: {fileID: 1999384572}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &2030176776
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2030176771}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d87acfb0d7911cb47adad578addfbeab, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &2051810666
 GameObject:
   m_ObjectHideFlags: 0

@@ -1,3 +1,4 @@
+using State;
 using UnityEngine;
 using UnityEngine.Animations;
 
@@ -52,6 +53,7 @@ public class PlayerAnimatorController : MonoBehaviour
         UpdateWeaponReadyTimer();
         UpdateAttackAnimation();
         UpdateDodgeAnimation();
+        UpdateDodgeCounterAnimation();
         UpdateWeaponReadyParameter();
     }
 
@@ -123,8 +125,30 @@ public class PlayerAnimatorController : MonoBehaviour
 
         weaponReadyTimer = weaponReadyDuration;
 
+        DodgeType dodgeType = playerController.StartedDodgeTypeThisFrame;
+
+        Debug.Log($"Dodge Animation Request : {dodgeType} / {(int)dodgeType}");
+
         animator.SetInteger(DodgeTypeHash, (int)playerController.StartedDodgeTypeThisFrame);
         animator.SetTrigger(DodgeTriggerHash);
+    }
+
+    private void UpdateDodgeCounterAnimation()
+    {
+        if (!playerController.DodgeCounterStartedThisFrame)
+        {
+            return;
+        }
+
+        weaponReadyTimer = weaponReadyDuration;
+
+        DodgeType dodgeType = playerController.StartedDodgeTypeThisFrame;
+
+        Debug.Log($"Dodge Counter Request : {dodgeType} / {(int)dodgeType}");
+
+        // 이미 DodgeStateMachine 안에 있으므로 Trigger를 다시 쏘지 않습니다.
+        // Quickshift_B → Sp_Skill3 조건인 DodgeType == 4만 만족시키면 됩니다.
+        animator.SetInteger(DodgeTypeHash, (int)dodgeType);
     }
 
     /// <summary>

@@ -31,17 +31,27 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField, Tooltip("기본 백스탭 지속시간")]
     private float backstepDuration = 0.22f;
 
+    [Header("Root Motion")]
+    [SerializeField, Tooltip("회피 중 애니메이션의 이동값을 사용할지")]
+    private bool useDodgeRootMotion = true;
+
+    [SerializeField, Tooltip("회피 중 애니메이션의 회전값을 사용할지")]
+    private bool useDodgeRootRotation = true;
+
     [Header("Dodge/side Backstep")]
     [SerializeField, Tooltip("백스텝 좌우이동 속도")]
     private float sideBackstepSpeed = 10.5f;
     [SerializeField, Tooltip("백스텝 좌우이동 지속시간")]
     private float sideBackstepDuration = 0.24f;
-    
+
+    [Header("Dodge - Forward Counter")]
+    [SerializeField, Tooltip("백스텝 후 전진 카운터 동작 유지 시간")]
+    private float forwardCounterDuration = 0.45f;
 
     [Header("Dodge - Disengage")]
-    [SerializeField, Tooltip("S + 회피로 발동하는 전투 이탈기 속도입니다.")]
+    [SerializeField, Tooltip("S + 회피로 발동하는 전투 이탈기 속도")]
     private float disengageSpeed = 11f;
-    [SerializeField, Tooltip("S + 회피로 발동하는 전투 이탈기 지속 시간입니다.")]
+    [SerializeField, Tooltip("S + 회피로 발동하는 전투 이탈기 지속 시간")]
     private float disengageDuration = 0.32f;
 
     [Header("Reference")]
@@ -138,6 +148,34 @@ public class PlayerMovement : MonoBehaviour
         return true;
     }
 
+    public bool TryStartDodgeFollowUp(DodgeType followUpType)
+    {
+        if (!isDodging)
+        {
+            return false;
+        }
+
+        if (currentDodgeType != DodgeType.Backstep)
+        {
+            return false;
+        }
+
+        currentDodgeType = followUpType;
+
+        switch (followUpType)
+        {
+            case DodgeType.ForwardCounterThrust:
+                // 후속 전진 카운터는 애니메이션 이동값을 사용할 예정이므로
+                // 코드 이동은 멈추고 Dodge 상태만 유지
+                dodgeDirection = Vector3.zero;
+                currrentDodgeSpeed = 0f;
+                dodgeTimer = forwardCounterDuration;
+                return true;
+
+            default:
+                return false;
+        }
+    }
     private DodgeType DecideDodgeType(Vector2 moveInput, float bufferedSideInput)
     {
         float sideInput = 0f;
@@ -221,10 +259,20 @@ public class PlayerMovement : MonoBehaviour
     {
         dodgeTimer -= Time.deltaTime;
 
-        Vector3 velocity = dodgeDirection * currrentDodgeSpeed;
-        velocity.y = verticalVelocity;
+        if (useDodgeRootMotion)
+        {
+            // 수평 이동과 회전은 Animator Root Motion
+            // 여기서는 중력만 CharacterController
+            Vector3 gravityVelocity = Vector3.up * verticalVelocity;
+            characterController.Move(gravityVelocity * Time.deltaTime);
+        }
+        else
+        {
+            Vector3 velocity = dodgeDirection * currrentDodgeSpeed;
+            velocity.y = verticalVelocity;
 
-        characterController.Move(velocity * Time.deltaTime);
+            characterController.Move(velocity * Time.deltaTime);
+        }
 
         if (dodgeTimer <= 0f)
         {
@@ -275,7 +323,66 @@ public class PlayerMovement : MonoBehaviour
     {
         verticalVelocity += gravity * Time.deltaTime;
     }
-    
+
+    public void ApplyAnimationRootMotion(Vector3 animationDeltaPosition, Quaternion animationDeltaRotation)
+    {
+        if (!useDodgeRootMotion)
+        {
+            return;
+        }
+
+        if (!isDodging)
+        {
+            return;
+        }
+
+        ApplyRootMotionPosition(animationDeltaPosition);
+        ApplyRootMotionRotation(animationDeltaRotation);
+    }
+
+    private void ApplyRootMotionPosition(Vector3 animationDeltaPosition)
+    {
+        Vector3 horizontalDelta = animationDeltaPosition;
+        horizontalDelta.y = 0f;
+
+        characterController.Move(horizontalDelta);
+    }
+
+    private void ApplyRootMotionRotation(Quaternion animationDeltaRotation)
+    {
+        if (!useDodgeRootRotation)
+        {
+            return;
+        }
+
+        if (!ShouldApplyRootRotation())
+        {
+            return;
+        }
+
+        Vector3 deltaEuler = animationDeltaRotation.eulerAngles;
+        Quaternion yawRotation = Quaternion.Euler(0f, deltaEuler.y, 0f);
+
+        transform.rotation = transform.rotation * yawRotation;
+    }
+
+    private bool ShouldApplyRootRotation()
+    {
+        switch (currentDodgeType)
+        {
+            case DodgeType.Disengage:
+                return true;
+
+            case DodgeType.ForwardCounterThrust:
+                return true;
+
+            case DodgeType.Backstep:
+            case DodgeType.SideBackstepLeft:
+            case DodgeType.SideBackstepRight:
+            default:
+                return false;
+        }
+    }
 
     /// <summary>
     /// 입력값을 카메라 기준으로 이동 방향 처리

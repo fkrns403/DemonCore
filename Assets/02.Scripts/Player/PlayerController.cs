@@ -37,6 +37,7 @@ public class PlayerController : MonoBehaviour
     public bool HeavyAttackStartedThisFrame { get; private set; }
 
     public bool DodgeStartedThisFrame { get; private set; }
+    public bool DodgeCounterStartedThisFrame { get; private set; }
     public DodgeType StartedDodgeTypeThisFrame { get; private set; }
 
 
@@ -55,6 +56,7 @@ public class PlayerController : MonoBehaviour
         ResetFrameActionRequests();
         UpdateActionTimers();
 
+        TryStartDodgeCounter();
         TryStartAttack();
         TryStartDodge();
 
@@ -70,6 +72,7 @@ public class PlayerController : MonoBehaviour
         HeavyAttackStartedThisFrame = false;
 
         DodgeStartedThisFrame = false;
+        DodgeCounterStartedThisFrame = false;
         StartedDodgeTypeThisFrame = DodgeType.None;
     }
     private void TryStartAttack()
@@ -120,6 +123,26 @@ public class PlayerController : MonoBehaviour
 
             ChangeState(PlayerState.Dodge);
         }
+    }
+
+    private void TryStartDodgeCounter()
+    {
+        bool attackPressed = inputReader.LightAttackPressed || inputReader.HeavyAttackPressed;
+
+        if (!attackPressed)
+        {
+            return;
+        }
+
+        if (!playerMovement.TryStartDodgeFollowUp(DodgeType.ForwardCounterThrust))
+        {
+            return;
+        }
+
+        DodgeCounterStartedThisFrame = true;
+        StartedDodgeTypeThisFrame = DodgeType.ForwardCounterThrust;
+
+        ChangeState(PlayerState.Dodge);
     }
 
     private void UpdateActionTimers()
