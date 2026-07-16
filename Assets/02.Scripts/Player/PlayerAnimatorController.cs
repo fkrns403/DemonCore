@@ -52,6 +52,7 @@ public class PlayerAnimatorController : MonoBehaviour
         }
 
         UpdateMovementAnimation();
+        UpdateAttackAnimatorParameter();
         UpdateWeaponReadyTimer();
         UpdateAttackAnimation();
         UpdateDodgeAnimation();
@@ -95,7 +96,7 @@ public class PlayerAnimatorController : MonoBehaviour
     /// <summary>
     /// playerController에서 결정한 공격타입과 콤보 번호를 animator에 전달
     /// </summary>
-    private void UpdateAttackAnimatorParametor()
+    private void UpdateAttackAnimatorParameter()
     {
         animator.SetInteger(AttackTypeHash, (int)playerController.CurrentAttackType);
         animator.SetInteger(ComboIndexHash, playerController.CurrentComboIndex);

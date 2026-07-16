@@ -111,9 +111,45 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
+        if (CanQueueLightComboAfterLock(lightAttackPressed))
+        {
+            TryQueueLightCombo(lightAttackPressed);
+            return;
+        }
+
         AttackType nextAttackType = DecideAttackType(lightAttackPressed, heavyAttackPressed);
 
         StartAttack(nextAttackType, 1, heavyAttackPressed);
+    }
+
+    private bool CanQueueLightComboAfterLock(bool lightAttackPressed)
+    {
+        if (!lightAttackPressed)
+        {
+            return false;
+        }
+
+        if (currentAttackType != AttackType.Light)
+        {
+            return false;
+        }
+
+        if (currentComboIndex <= 0)
+        {
+            return false;
+        }
+
+        if (currentComboIndex >= maxLightComboCount)
+        {
+            return false;
+        }
+
+        if (attackParameterResetTimer <= 0f)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private void StartAttack(AttackType attackType, int comboIndex, bool isHeavyAttack)
@@ -182,6 +218,12 @@ public class PlayerController : MonoBehaviour
 
     private void UpdateActionTimers()
     {
+        UpdateAttackLockTimer();
+        UpdateAttackParameterResetTimer();
+    }
+
+    private void UpdateAttackLockTimer()
+    {
         if (attackLockTimer <= 0f)
         {
             attackLockTimer = 0f;
@@ -189,6 +231,24 @@ public class PlayerController : MonoBehaviour
         }
 
         attackLockTimer -= Time.deltaTime;
+    }
+
+    private void UpdateAttackParameterResetTimer()
+    {
+        if (attackParameterResetTimer <= 0f)
+        {
+            ClearAttackParameters();
+            return;
+        }
+
+        attackParameterResetTimer -= Time.deltaTime;
+    }
+
+    private void ClearAttackParameters()
+    {
+        currentAttackType = AttackType.None;
+        currentComboIndex = 0;
+        attackParameterResetTimer = 0f;
     }
 
     private void UpdateMovement()
@@ -355,7 +415,6 @@ public class PlayerController : MonoBehaviour
         currentComboIndex++;
         attackParameterResetTimer = attackParameterResetDelay;
 
-        // 다음 콤보 전환이 끊기지 않도록 공격 상태를 조금 더 유지합니다.
         attackLockTimer = Mathf.Max(attackLockTimer, lightAttackLockDuration);
 
         if (showDebugLog)

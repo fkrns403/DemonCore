@@ -264,6 +264,9 @@ MonoBehaviour:
   showDebugLog: 1
   lightAttackLockDuration: 0.35
   heavyAttackLockDuration: 0.55
+  maxLightComboCount: 3
+  attackParameterResetDelay: 1.1
+  airAttackLockDuration: 0.75
 --- !u!114 &603083817
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -292,6 +295,10 @@ MonoBehaviour:
   disengageSpeed: 11
   disengageDuration: 1
   cameraTransform: {fileID: 0}
+  airAttackDuration: 0.75
+  airAttackGravityMultiplier: 0.2
+  airAttackStartVerticalVelocity: -0.5
+  allowAirAttackHorizontalControl: 0
 --- !u!114 &603083818
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -660,6 +667,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d87acfb0d7911cb47adad578addfbeab, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  showRootMotionLog: 1
 --- !u!1 &2051810666
 GameObject:
   m_ObjectHideFlags: 0
@@ -766,7 +774,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 21639fe25319edf4692ff4b9f09f9445, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  target: {fileID: 0}
+  target: {fileID: 2030176772}
   offset: {x: 0, y: 3, z: -6}
   followSmoothTime: 0.08
   lookHeight: 1.2
