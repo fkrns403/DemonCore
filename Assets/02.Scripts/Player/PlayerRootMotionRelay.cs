@@ -1,0 +1,55 @@
+using UnityEngine;
+
+/// <summary>
+/// Animator의 root motion 이동과 회전값을 부모의 playerMovement로 전달하는 컴포넌트
+/// </summary>
+
+[RequireComponent(typeof(Animator))]
+public class PlayerRootMotionRelay : MonoBehaviour
+{
+    [SerializeField, Tooltip("Root Motion delta 로그를 출력할지 여부입니다.")]
+    private bool showRootMotionLog = false;
+    private Animator animator;
+    private PlayerMovement playerMovement;
+
+    private Vector3 initialLocalPosition;
+    private Quaternion initialLocalRotation;
+
+    private void Awake()
+    {
+        animator = GetComponent<Animator>();
+        playerMovement = GetComponentInParent<PlayerMovement>();
+
+        initialLocalPosition = transform.localPosition;
+        initialLocalRotation = transform.localRotation;
+    }
+
+    private void OnAnimatorMove()
+    {
+        if (animator == null || playerMovement == null)
+        {
+            ResetModelLocalTransform();
+            return;
+        }
+
+        if (showRootMotionLog)
+        {
+            Debug.Log(
+                $"RootMotion Delta Position : {animator.deltaPosition}, " +
+                $"Delta Rotation : {animator.deltaRotation.eulerAngles}"
+            );
+        }
+        playerMovement.ApplyAnimationRootMotion(
+            animator.deltaPosition,
+            animator.deltaRotation
+        );
+
+        ResetModelLocalTransform();
+    }
+
+    private void ResetModelLocalTransform()
+    {
+        transform.localPosition = initialLocalPosition;
+        transform.localRotation = initialLocalRotation;
+    }
+}

@@ -31,22 +31,45 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField, Tooltip("기본 백스탭 지속시간")]
     private float backstepDuration = 0.22f;
 
+    [Header("Root Motion")]
+    [SerializeField, Tooltip("회피 중 애니메이션의 이동값을 사용할지")]
+    private bool useDodgeRootMotion = true;
+
+    [SerializeField, Tooltip("회피 중 애니메이션의 회전값을 사용할지")]
+    private bool useDodgeRootRotation = true;
+
     [Header("Dodge/side Backstep")]
     [SerializeField, Tooltip("백스텝 좌우이동 속도")]
     private float sideBackstepSpeed = 10.5f;
     [SerializeField, Tooltip("백스텝 좌우이동 지속시간")]
     private float sideBackstepDuration = 0.24f;
-    
+
+    [Header("Dodge - Forward Counter")]
+    [SerializeField, Tooltip("백스텝 후 전진 카운터 동작 유지 시간")]
+    private float forwardCounterDuration = 0.45f;
 
     [Header("Dodge - Disengage")]
-    [SerializeField, Tooltip("S + 회피로 발동하는 전투 이탈기 속도입니다.")]
+    [SerializeField, Tooltip("S + 회피로 발동하는 전투 이탈기 속도")]
     private float disengageSpeed = 11f;
-    [SerializeField, Tooltip("S + 회피로 발동하는 전투 이탈기 지속 시간입니다.")]
+    [SerializeField, Tooltip("S + 회피로 발동하는 전투 이탈기 지속 시간")]
     private float disengageDuration = 0.32f;
 
     [Header("Reference")]
     [SerializeField, Tooltip("이동 방향 기준이 되는 카메라 위치")]
     private Transform cameraTransform;
+
+    [Header("Air Attack")]
+    [SerializeField, Tooltip("공중공격 중 체공을 유지하는 시간입니다.")]
+    private float airAttackDuration = 0.75f;
+
+    [SerializeField, Tooltip("공중공격 중 적용할 중력 배율입니다.")]
+    private float airAttackGravityMultiplier = 0.2f;
+
+    [SerializeField, Tooltip("공중공격 시작 시 하강 속도를 어느 정도까지 줄일지 결정합니다.")]
+    private float airAttackStartVerticalVelocity = -0.5f;
+
+    [SerializeField, Tooltip("공중공격 중 수평 이동 입력을 허용할지 여부입니다.")]
+    private bool allowAirAttackHorizontalControl = false;
 
     private CharacterController characterController;
 
@@ -58,8 +81,14 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 dodgeDirection;
     private DodgeType currentDodgeType;
 
+    private bool isAirAttacking;
+    private float airAttackTimer;
+
+    
+
     public bool IsGrounded { get; private set; }
     // 지면 접촉 여부
+    public bool IsAirAttacking => isAirAttacking;
     public bool IsDodging => isDodging;
     public bool IsRising => !IsGrounded && verticalVelocity > 0f;
     // 플레이어 상승 상태인지
@@ -87,6 +116,13 @@ public class PlayerMovement : MonoBehaviour
         }
 
         UpdateGroindedState();
+
+        if (isAirAttacking)
+        {
+            UpdateAirAttack(moveInput);
+            return;
+        }
+
         ApplyGravity();
 
         if (isDodging)
@@ -138,6 +174,34 @@ public class PlayerMovement : MonoBehaviour
         return true;
     }
 
+    public bool TryStartDodgeFollowUp(DodgeType followUpType)
+    {
+        if (!isDodging)
+        {
+            return false;
+        }
+
+        if (currentDodgeType != DodgeType.Backstep)
+        {
+            return false;
+        }
+
+        currentDodgeType = followUpType;
+
+        switch (followUpType)
+        {
+            case DodgeType.ForwardCounterThrust:
+                // 후속 전진 카운터는 애니메이션 이동값을 사용할 예정이므로
+                // 코드 이동은 멈추고 Dodge 상태만 유지
+                dodgeDirection = Vector3.zero;
+                currrentDodgeSpeed = 0f;
+                dodgeTimer = forwardCounterDuration;
+                return true;
+
+            default:
+                return false;
+        }
+    }
     private DodgeType DecideDodgeType(Vector2 moveInput, float bufferedSideInput)
     {
         float sideInput = 0f;
@@ -221,10 +285,20 @@ public class PlayerMovement : MonoBehaviour
     {
         dodgeTimer -= Time.deltaTime;
 
-        Vector3 velocity = dodgeDirection * currrentDodgeSpeed;
-        velocity.y = verticalVelocity;
+        if (useDodgeRootMotion)
+        {
+            // 수평 이동과 회전은 Animator Root Motion
+            // 여기서는 중력만 CharacterController
+            Vector3 gravityVelocity = Vector3.up * verticalVelocity;
+            characterController.Move(gravityVelocity * Time.deltaTime);
+        }
+        else
+        {
+            Vector3 velocity = dodgeDirection * currrentDodgeSpeed;
+            velocity.y = verticalVelocity;
 
-        characterController.Move(velocity * Time.deltaTime);
+            characterController.Move(velocity * Time.deltaTime);
+        }
 
         if (dodgeTimer <= 0f)
         {
@@ -275,7 +349,66 @@ public class PlayerMovement : MonoBehaviour
     {
         verticalVelocity += gravity * Time.deltaTime;
     }
-    
+
+    public void ApplyAnimationRootMotion(Vector3 animationDeltaPosition, Quaternion animationDeltaRotation)
+    {
+        if (!useDodgeRootMotion)
+        {
+            return;
+        }
+
+        if (!isDodging)
+        {
+            return;
+        }
+
+        ApplyRootMotionPosition(animationDeltaPosition);
+        ApplyRootMotionRotation(animationDeltaRotation);
+    }
+
+    private void ApplyRootMotionPosition(Vector3 animationDeltaPosition)
+    {
+        Vector3 horizontalDelta = animationDeltaPosition;
+        horizontalDelta.y = 0f;
+
+        characterController.Move(horizontalDelta);
+    }
+
+    private void ApplyRootMotionRotation(Quaternion animationDeltaRotation)
+    {
+        if (!useDodgeRootRotation)
+        {
+            return;
+        }
+
+        if (!ShouldApplyRootRotation())
+        {
+            return;
+        }
+
+        Vector3 deltaEuler = animationDeltaRotation.eulerAngles;
+        Quaternion yawRotation = Quaternion.Euler(0f, deltaEuler.y, 0f);
+
+        transform.rotation = transform.rotation * yawRotation;
+    }
+
+    private bool ShouldApplyRootRotation()
+    {
+        switch (currentDodgeType)
+        {
+            case DodgeType.Disengage:
+                return true;
+
+            case DodgeType.ForwardCounterThrust:
+                return true;
+
+            case DodgeType.Backstep:
+            case DodgeType.SideBackstepLeft:
+            case DodgeType.SideBackstepRight:
+            default:
+                return false;
+        }
+    }
 
     /// <summary>
     /// 입력값을 카메라 기준으로 이동 방향 처리
@@ -311,6 +444,79 @@ public class PlayerMovement : MonoBehaviour
         Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
 
         transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+    }
+
+    /// <summary>
+    /// 공중공격 상태처리
+    /// 실제 점프는 기존 점프와 중력 코드가 처리하고
+    /// 채공 낙하속도만 보정 처리
+    /// </summary>
+    /// <returns></returns>
+    public bool TryStartAirAttack()
+    {
+        UpdateGroindedState();
+
+        if (IsGrounded)
+        {
+            return false;
+        }
+
+        if (isAirAttacking)
+        {
+            return false;
+        }
+
+        if (isDodging)
+        {
+            return false;
+        }
+
+        isAirAttacking = true;
+        airAttackTimer = airAttackDuration;
+
+        if (verticalVelocity < airAttackStartVerticalVelocity)
+        {
+            verticalVelocity = airAttackStartVerticalVelocity;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 공중 공격중 중력처리 공격모션중 체공가능하도록해주는 함수
+    /// </summary>
+    /// <param name="moveInput"></param>
+    private void UpdateAirAttack(Vector2 moveInput)
+    {
+        airAttackTimer -= Time.deltaTime;
+
+        verticalVelocity += gravity * airAttackGravityMultiplier * Time.deltaTime;
+
+        Vector3 horizontalDirection = Vector3.zero;
+
+        if (allowAirAttackHorizontalControl)
+        {
+            horizontalDirection = CalculateCamerRelativeDirection(moveInput);
+        }
+
+        Vector3 velocity = horizontalDirection * walkSpeed;
+        velocity.y = verticalVelocity;
+
+        characterController.Move(velocity * Time.deltaTime);
+
+        if ((characterController.isGrounded && verticalVelocity <= 0f) || airAttackTimer <= 0f)
+        {
+            EndAirAttack();
+        }
+    }
+
+    /// <summary>
+    /// 공중공격 상태 초기화
+    /// </summary>
+    public void EndAirAttack()
+    {
+        isAirAttacking = false;
+        airAttackTimer = 0f;
     }
 
 }
