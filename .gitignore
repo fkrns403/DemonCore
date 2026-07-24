@@ -104,3 +104,16 @@ InitTestScene*.unity*
 
 # Auto-generated cache in Assets folder
 /[Aa]ssets/[Ss]ceneDependencyCache*
+
+# Third-party Unity asset packages
+/Assets/Gothic_Interior/
+/Assets/Gothic_Interior.meta
+
+/Assets/KINEMATION/
+/Assets/KINEMATION.meta
+
+/Assets/Magic Pig Games (Infinity PBR)/
+/Assets/Magic Pig Games (Infinity PBR).meta
+
+/Assets/ScansFactory/
+/Assets/ScansFactory.meta

@@ -1,121 +1,207 @@
+using System;
 using State;
 using UnityEngine;
 
 /// <summary>
-/// ÇÃ·¹ÀÌ¾î ÀÌµ¿Ã³¸® ´ã´ç
-/// playerinputReader°¡ ÀĞÀº ÀÔ·Â°ªÀ» Ä«¸Ş¶ó ±âÁØ ÀÌµ¿ ¹æÇâÀ¸·Î º¯È¯
-/// ChaacherController.move¸¦ ÅëÇØ ÇÃ·¹ÀÌ¾î ÀÌµ¿Ã³¸®
+/// í”Œë ˆì´ì–´ì˜ ì‹¤ì œ ìœ„ì¹˜ì™€ íšŒì „ì„ ë³€ê²½í•˜ëŠ” Motorì…ë‹ˆë‹¤.
+/// ì…ë ¥ í•´ì„ì€ PlayerController, ì• ë‹ˆë©”ì´ì…˜ íŒŒë¼ë¯¸í„°ëŠ” PlayerAnimatorController,
+/// ì™€ì´ì–´ ëª©í‘œ íƒìƒ‰ì€ PlayerWireControllerê°€ ë‹´ë‹¹í•˜ê³  ì´ í´ë˜ìŠ¤ëŠ” ìµœì¢… ì´ë™ë§Œ ì‹¤í–‰í•©ë‹ˆë‹¤.
 /// </summary>
 [RequireComponent(typeof(CharacterController))]
 public class PlayerMovement : MonoBehaviour
 {
     [Header("Movement")]
-    [SerializeField, Tooltip("±âº» °È±â ÀÌµ¿ ¼Óµµ")]
-    private float walkSpeed = 4f;
-    [SerializeField, Tooltip("µ¥½¬ ÀÔ·Â½Ã ÀÌµ¿¼Óµµ")]
-    private float sprintSpeed = 6.5f;
-    [SerializeField, Tooltip("ÇÃ·¹ÀÌ¾î È¸Àü ¼Óµµ")]
-    private float rotationSpeed = 720f;
+    [SerializeField] private float walkSpeed = 4f;
+    [SerializeField] private float sprintSpeed = 6.5f;
+    [SerializeField] private float rotationSpeed = 720f;
 
-    [Header("Jump/Gravity")]
-    [SerializeField,Tooltip("Á¡ÇÁ ÃÖ´ë ³ôÀÌ")]
-    private float jumpHeight = 1.2f;
-    [SerializeField, Tooltip("ÇÃ·¹ÀÌ¾î¿¡°Ô Àû¿ëÇÒ Áß·Â °ª")]
-    private float gravity = -20f;
-    [SerializeField, Tooltip("Áö¸é Á¢ÃË»óÅÂ½Ã ÇÏ°­¼Óµµ")]
-    private float groundedGravity = -2f;
+    [Header("Jump / Gravity")]
+    [SerializeField] private float jumpHeight = 1.2f;
+    [SerializeField] private float gravity = -20f;
+    [SerializeField] private float groundedGravity = -2f;
 
-    [Header("Dodge/Backstep")]
-    [SerializeField, Tooltip("È¸ÇÇÁß ÀÌµ¿ ¼Óµµ")]
-    private float backstepSpeed = 10f;
-    [SerializeField, Tooltip("±âº» ¹é½ºÅÇ Áö¼Ó½Ã°£")]
-    private float backstepDuration = 0.22f;
+    [Header("Dodge Rules")]
+    [SerializeField, Tooltip("íšŒí”¼ 1íšŒ ìŠ¤íƒœë¯¸ë‚˜ ë¹„ìš©ì…ë‹ˆë‹¤.")]
+    private float dodgeStaminaCost = 15f;
 
-    [Header("Root Motion")]
-    [SerializeField, Tooltip("È¸ÇÇ Áß ¾Ö´Ï¸ŞÀÌ¼ÇÀÇ ÀÌµ¿°ªÀ» »ç¿ëÇÒÁö")]
+    [SerializeField, Tooltip("ë‹¤ìŒ íšŒí”¼ë¥¼ í—ˆìš©í•˜ê¸° ì „ ìµœì†Œ ëŒ€ê¸°ì‹œê°„ì…ë‹ˆë‹¤.")]
+    private float dodgeCooldown = 0.35f;
+
+    [SerializeField, Tooltip("ì• ë‹ˆë©”ì´ì…˜ ì´ë²¤íŠ¸ë¥¼ ì•„ì§ ë°°ì¹˜í•˜ì§€ ì•Šì•˜ì„ ë•Œ ì‚¬ìš©í•  ê¸°ë³¸ ë¬´ì  ì‹œê°„ì…ë‹ˆë‹¤.")]
+    private float defaultDodgeInvulnerabilityDuration = 0.18f;
+
+    [SerializeField, Tooltip("ONì´ë©´ í´ë¦½ ë§ˆì§€ë§‰ Animation Eventê°€ íšŒí”¼ë¥¼ ì¢…ë£Œí•˜ê³ , íƒ€ì´ë¨¸ëŠ” ë¹„ì •ìƒ ìƒíƒœ ë°©ì§€ìš©ìœ¼ë¡œë§Œ ì‚¬ìš©í•©ë‹ˆë‹¤.")]
+    private bool useAnimationEventDodgeEnd = true;
+
+    [SerializeField, Min(0.1f), Tooltip("Animation Eventê°€ ëˆ„ë½ë˜ì—ˆì„ ë•Œ íšŒí”¼ ìƒíƒœë¥¼ ê°•ì œë¡œ í•´ì œí•˜ëŠ” ìµœëŒ€ ì•ˆì „ ì‹œê°„ì…ë‹ˆë‹¤.")]
+    private float dodgeSafetyTimeout = 2f;
+
+    [SerializeField, Tooltip("ONì´ë©´ ë°±ìŠ¤í… í´ë¦½ì— ë°°ì¹˜í•œ Open/Close ì´ë²¤íŠ¸ ì‚¬ì´ì—ì„œë§Œ ì „ì§„ ì¹´ìš´í„°ë¥¼ í—ˆìš©í•©ë‹ˆë‹¤.")]
+    private bool requireAnimationEventFollowUpWindow;
+
+    [SerializeField, Tooltip("ì´ë²¤íŠ¸ë¥¼ ì‚¬ìš©í•˜ì§€ ì•Šì„ ë•Œ ë°±ìŠ¤í… ì‹œì‘ í›„ ì „ì§„ ì¹´ìš´í„°ë¥¼ í—ˆìš©í•˜ëŠ” ìµœì†Œ ì‹œê°„ì…ë‹ˆë‹¤.")]
+    private float fallbackFollowUpWindowStart = 0.08f;
+
+    [SerializeField, Tooltip("ì´ë²¤íŠ¸ë¥¼ ì‚¬ìš©í•˜ì§€ ì•Šì„ ë•Œ ë°±ìŠ¤í… ì‹œì‘ í›„ ì „ì§„ ì¹´ìš´í„°ë¥¼ í—ˆìš©í•˜ëŠ” ìµœëŒ€ ì‹œê°„ì…ë‹ˆë‹¤.")]
+    private float fallbackFollowUpWindowEnd = 0.42f;
+
+    [Header("Dodge - Code Fallback")]
+    [SerializeField] private float backstepSpeed = 10f;
+    [SerializeField] private float backstepFallbackDuration = 0.65f;
+    [SerializeField] private float sideBackstepSpeed = 8f;
+    [SerializeField] private float sideBackstepFallbackDuration = 0.65f;
+    [SerializeField] private float forwardCounterFallbackDuration = 1.1f;
+    [SerializeField] private float disengageSpeed = 11f;
+    [SerializeField] private float disengageFallbackDuration = 0.65f;
+
+    [Header("Dodge Root Motion")]
+    [SerializeField, Tooltip("íšŒí”¼ í´ë¦½ì˜ Root Motion ì´ë™ê°’ì„ CharacterControllerì— ì ìš©í•©ë‹ˆë‹¤.")]
     private bool useDodgeRootMotion = true;
 
-    [SerializeField, Tooltip("È¸ÇÇ Áß ¾Ö´Ï¸ŞÀÌ¼ÇÀÇ È¸Àü°ªÀ» »ç¿ëÇÒÁö")]
+    [SerializeField, Tooltip("íšŒí”¼ í´ë¦½ì˜ Yì¶• Root Rotationì„ ì ìš©í•©ë‹ˆë‹¤.")]
     private bool useDodgeRootRotation = true;
 
-    [Header("Dodge/side Backstep")]
-    [SerializeField, Tooltip("¹é½ºÅÜ ÁÂ¿ìÀÌµ¿ ¼Óµµ")]
-    private float sideBackstepSpeed = 10.5f;
-    [SerializeField, Tooltip("¹é½ºÅÜ ÁÂ¿ìÀÌµ¿ Áö¼Ó½Ã°£")]
-    private float sideBackstepDuration = 0.24f;
+    [SerializeField, Tooltip("ì „ì§„ ì¹´ìš´í„° í´ë¦½ì˜ ì´ë™ëŸ‰ì€ ìœ ì§€í•˜ë˜ ë°©í–¥ì„ í˜„ì¬ í”Œë ˆì´ì–´ ì •ë©´ìœ¼ë¡œ ì •ë ¬í•©ë‹ˆë‹¤.")]
+    private bool alignForwardCounterRootMotionToFacing = true;
 
-    [Header("Dodge - Forward Counter")]
-    [SerializeField, Tooltip("¹é½ºÅÜ ÈÄ ÀüÁø Ä«¿îÅÍ µ¿ÀÛ À¯Áö ½Ã°£")]
-    private float forwardCounterDuration = 0.45f;
+    [SerializeField] private float backstepRootMotionMultiplier = 1f;
+    [SerializeField] private float sideBackstepRootMotionMultiplier = 1.25f;
+    [SerializeField] private float forwardCounterRootMotionMultiplier = 1f;
+    [SerializeField] private float disengageRootMotionMultiplier = 1f;
 
-    [Header("Dodge - Disengage")]
-    [SerializeField, Tooltip("S + È¸ÇÇ·Î ¹ßµ¿ÇÏ´Â ÀüÅõ ÀÌÅ»±â ¼Óµµ")]
-    private float disengageSpeed = 11f;
-    [SerializeField, Tooltip("S + È¸ÇÇ·Î ¹ßµ¿ÇÏ´Â ÀüÅõ ÀÌÅ»±â Áö¼Ó ½Ã°£")]
-    private float disengageDuration = 0.32f;
+    [SerializeField, Tooltip("ì „ì§„ ì¹´ìš´í„° ì‹œì‘ í›„ ì´ ì‹œê°„ ë™ì•ˆ ìˆ˜í‰ Root Motionì´ 0ì´ë©´ ê²½ê³ ë¥¼ ì¶œë ¥í•©ë‹ˆë‹¤.")]
+    private float rootMotionDiagnosticDelay = 0.2f;
 
-    [Header("Reference")]
-    [SerializeField, Tooltip("ÀÌµ¿ ¹æÇâ ±âÁØÀÌ µÇ´Â Ä«¸Ş¶ó À§Ä¡")]
-    private Transform cameraTransform;
+    [Header("References")]
+    [SerializeField] private Transform cameraTransform;
+    [SerializeField] private PlayerStamina playerStamina;
+    [SerializeField] private PlayerInvulnerability playerInvulnerability;
 
     [Header("Air Attack")]
-    [SerializeField, Tooltip("°øÁß°ø°İ Áß Ã¼°øÀ» À¯ÁöÇÏ´Â ½Ã°£ÀÔ´Ï´Ù.")]
-    private float airAttackDuration = 0.75f;
+    [SerializeField] private float airAttackDuration = 0.75f;
+    [SerializeField] private float airAttackGravityMultiplier = 0.2f;
+    [SerializeField] private float airAttackStartVerticalVelocity = -0.5f;
+    [SerializeField] private bool allowAirAttackHorizontalControl;
 
-    [SerializeField, Tooltip("°øÁß°ø°İ Áß Àû¿ëÇÒ Áß·Â ¹èÀ²ÀÔ´Ï´Ù.")]
-    private float airAttackGravityMultiplier = 0.2f;
+    [Header("Wire - Legacy Fallback")]
+    [SerializeField] private float legacyWireMoveSpeed = 18f;
+    [SerializeField] private float legacyWireStopDistance = 1.2f;
+    [SerializeField] private float wireRotationSpeed = 900f;
 
-    [SerializeField, Tooltip("°øÁß°ø°İ ½ÃÀÛ ½Ã ÇÏ°­ ¼Óµµ¸¦ ¾î´À Á¤µµ±îÁö ÁÙÀÏÁö °áÁ¤ÇÕ´Ï´Ù.")]
-    private float airAttackStartVerticalVelocity = -0.5f;
-
-    [SerializeField, Tooltip("°øÁß°ø°İ Áß ¼öÆò ÀÌµ¿ ÀÔ·ÂÀ» Çã¿ëÇÒÁö ¿©ºÎÀÔ´Ï´Ù.")]
-    private bool allowAirAttackHorizontalControl = false;
+    [Header("Lock On")]
+    [SerializeField] private float lockOnRotationSpeed = 900f;
 
     private CharacterController characterController;
-
     private float verticalVelocity;
 
     private bool isDodging;
-    private float dodgeTimer;
-    private float currrentDodgeSpeed;
+    private float dodgeFallbackTimer;
+    private float dodgeElapsedTime;
+    private float dodgeCooldownTimer;
+    private float currentDodgeSpeed;
     private Vector3 dodgeDirection;
     private DodgeType currentDodgeType;
+    private bool dodgeFollowUpWindowOpen;
+    private float horizontalRootMotionAccumulation;
+    private bool rootMotionWarningPrinted;
 
     private bool isAirAttacking;
     private float airAttackTimer;
 
-    
+    private bool isWireMoving;
+    private bool useLegacyWireRequest;
+    private Vector3 legacyWireDestination;
+    private WireMoveRequest currentWireRequest;
+    private float currentWireSpeed;
+    private float wireStartDelayTimer;
+    private float wireTravelTimer;
+
+    private Transform lockOnTarget;
+
+    public event Action<WireActionType> WireMoveStarted;
+    public event Action<WireActionType, WireMoveEndReason> WireMoveEnded;
 
     public bool IsGrounded { get; private set; }
-    // Áö¸é Á¢ÃË ¿©ºÎ
     public bool IsAirAttacking => isAirAttacking;
     public bool IsDodging => isDodging;
+    public bool IsWireMoving => isWireMoving;
+    public bool IsLockedOn => lockOnTarget != null;
     public bool IsRising => !IsGrounded && verticalVelocity > 0f;
-    // ÇÃ·¹ÀÌ¾î »ó½Â »óÅÂÀÎÁö
     public bool IsFalling => !IsGrounded && verticalVelocity <= 0f;
-    // ÇÃ·¹ÀÌ¾î°¡ ³«ÇÏ »óÅÂÀÎÁö
-    public DodgeType CurrentDodgeType => currentDodgeType; 
+    public float VerticalVelocity => verticalVelocity;
+    public DodgeType CurrentDodgeType => currentDodgeType;
+    public bool CanAcceptDodgeFollowUp => CanUseDodgeFollowUpWindow();
 
-    
+    public bool JumpStartedThisFrame { get; private set; }
+    public bool LandedThisFrame { get; private set; }
 
     private void Awake()
     {
         characterController = GetComponent<CharacterController>();
+
         if (cameraTransform == null && Camera.main != null)
         {
             cameraTransform = Camera.main.transform;
         }
+
+        if (playerStamina == null)
+        {
+            playerStamina = GetComponent<PlayerStamina>();
+        }
+
+        if (playerInvulnerability == null)
+        {
+            playerInvulnerability = GetComponent<PlayerInvulnerability>();
+        }
     }
 
+    private void Update()
+    {
+        if (dodgeCooldownTimer > 0f)
+        {
+            dodgeCooldownTimer -= Time.deltaTime;
+        }
+    }
+
+    /// <summary>
+    /// PlayerControllerê°€ ë§¤ í”„ë ˆì„ í˜¸ì¶œí•˜ëŠ” ì´ë™ ì§„ì…ì ì…ë‹ˆë‹¤.
+    /// </summary>
     public void Move(Vector2 moveInput, bool isSprinting, bool jumpPressed)
     {
+        Move(moveInput, isSprinting, jumpPressed, false);
+    }
+
+    /// <summary>
+    /// ë¡œí”„ ì´ë™ì˜ ë¹ ë¥¸ í•˜ê°• ì…ë ¥ê¹Œì§€ í¬í•¨í•œ ì´ë™ ì§„ì…ì ì…ë‹ˆë‹¤.
+    /// </summary>
+    public void Move(
+        Vector2 moveInput,
+        bool isSprinting,
+        bool jumpPressed,
+        bool wireFastDescendHeld)
+    {
+        JumpStartedThisFrame = false;
+        LandedThisFrame = false;
+
         if (cameraTransform == null)
         {
-            Debug.LogWarning("playerMovement : cameratransfromÀÌ ÁöÁ¤µÇÁö ¾Ê¾Ò½À´Ï´Ù");
+            Debug.LogWarning("PlayerMovement : Camera Transformì´ ì§€ì •ë˜ì§€ ì•Šì•˜ìŠµë‹ˆë‹¤.");
             return;
         }
 
-        UpdateGroindedState();
+        bool wasGrounded = IsGrounded;
+        UpdateGroundedState();
+
+        if (!wasGrounded && IsGrounded)
+        {
+            LandedThisFrame = true;
+        }
+
+        if (isWireMoving)
+        {
+            UpdateWireMove(moveInput, jumpPressed, wireFastDescendHeld);
+            return;
+        }
 
         if (isAirAttacking)
         {
@@ -133,7 +219,7 @@ public class PlayerMovement : MonoBehaviour
 
         ApplyJump(jumpPressed);
 
-        Vector3 horizontalDirection = CalculateCamerRelativeDirection(moveInput);
+        Vector3 horizontalDirection = CalculateCameraRelativeDirection(moveInput);
         float currentSpeed = isSprinting ? sprintSpeed : walkSpeed;
 
         Vector3 velocity = horizontalDirection * currentSpeed;
@@ -141,79 +227,228 @@ public class PlayerMovement : MonoBehaviour
 
         characterController.Move(velocity * Time.deltaTime);
 
-        if (horizontalDirection.sqrMagnitude > 0.01f)
+        if (lockOnTarget != null)
+        {
+            RotateToLockOnTarget();
+        }
+        else if (horizontalDirection.sqrMagnitude > 0.01f)
         {
             RotateToMoveDirection(horizontalDirection);
         }
+    }
 
-        
-
+    public void SetLockOnTarget(Transform target)
+    {
+        lockOnTarget = target;
     }
 
     public bool TryStartDodge(Vector2 moveInput, float bufferedSideInput)
     {
-        UpdateGroindedState();
+        UpdateGroundedState();
 
-        if (isDodging)
-        {
-            return false;
-        }
-        if (!IsGrounded)
+        if (isDodging || isWireMoving || !IsGrounded || dodgeCooldownTimer > 0f)
         {
             return false;
         }
 
+        if (playerStamina != null && !playerStamina.TrySpend(dodgeStaminaCost))
+        {
+            return false;
+        }
 
         currentDodgeType = DecideDodgeType(moveInput, bufferedSideInput);
         dodgeDirection = CalculateDodgeDirection(currentDodgeType);
-
         ApplyDodgeSetting(currentDodgeType);
 
         isDodging = true;
+        dodgeElapsedTime = 0f;
+        dodgeFollowUpWindowOpen = false;
+        horizontalRootMotionAccumulation = 0f;
+        rootMotionWarningPrinted = false;
+        dodgeCooldownTimer = dodgeCooldown;
 
+        BeginDodgeInvulnerability(defaultDodgeInvulnerabilityDuration);
         return true;
     }
 
     public bool TryStartDodgeFollowUp(DodgeType followUpType)
     {
-        if (!isDodging)
+        if (!isDodging || currentDodgeType != DodgeType.Backstep)
         {
             return false;
         }
 
-        if (currentDodgeType != DodgeType.Backstep)
+        if (!CanUseDodgeFollowUpWindow())
+        {
+            return false;
+        }
+
+        if (followUpType != DodgeType.ForwardCounterThrust)
         {
             return false;
         }
 
         currentDodgeType = followUpType;
+        dodgeDirection = Vector3.zero;
+        currentDodgeSpeed = 0f;
+        dodgeFallbackTimer = GetDodgeEndTimeout(forwardCounterFallbackDuration);
+        dodgeElapsedTime = 0f;
+        dodgeFollowUpWindowOpen = false;
+        horizontalRootMotionAccumulation = 0f;
+        rootMotionWarningPrinted = false;
+        return true;
+    }
 
-        switch (followUpType)
+    public void OpenDodgeFollowUpWindow()
+    {
+        if (isDodging && currentDodgeType == DodgeType.Backstep)
         {
-            case DodgeType.ForwardCounterThrust:
-                // ÈÄ¼Ó ÀüÁø Ä«¿îÅÍ´Â ¾Ö´Ï¸ŞÀÌ¼Ç ÀÌµ¿°ªÀ» »ç¿ëÇÒ ¿¹Á¤ÀÌ¹Ç·Î
-                // ÄÚµå ÀÌµ¿Àº ¸ØÃß°í Dodge »óÅÂ¸¸ À¯Áö
-                dodgeDirection = Vector3.zero;
-                currrentDodgeSpeed = 0f;
-                dodgeTimer = forwardCounterDuration;
-                return true;
-
-            default:
-                return false;
+            dodgeFollowUpWindowOpen = true;
         }
     }
+
+    public void CloseDodgeFollowUpWindow()
+    {
+        dodgeFollowUpWindowOpen = false;
+    }
+
+    public void BeginDodgeInvulnerability(float duration)
+    {
+        playerInvulnerability?.Begin(duration);
+    }
+
+    public void EndDodgeInvulnerability()
+    {
+        playerInvulnerability?.End();
+    }
+
+    /// <summary>
+    /// íšŒí”¼ í´ë¦½ ë§ˆì§€ë§‰ í”„ë ˆì„ì˜ Animation Eventì—ì„œ í˜¸ì¶œí•©ë‹ˆë‹¤.
+    /// ê³ ì • íƒ€ì´ë¨¸ê°€ ë£¨íŠ¸ëª¨ì…˜ì„ ì¤‘ê°„ì— ì˜ë¼ë²„ë¦¬ëŠ” ê²ƒì„ ë§‰ìŠµë‹ˆë‹¤.
+    /// </summary>
+    public void NotifyDodgeAnimationFinished()
+    {
+        if (isDodging)
+        {
+            EndDodge();
+        }
+    }
+
+    /// <summary>
+    /// ì „í™˜ ì¤‘ ì´ì „ í´ë¦½ì˜ ì¢…ë£Œ ì´ë²¤íŠ¸ê°€ ë’¤ëŠ¦ê²Œ ë“¤ì–´ì™€ ìƒˆ íšŒí”¼ë¥¼ ëŠì§€ ì•Šë„ë¡
+    /// í˜„ì¬ íšŒí”¼ íƒ€ì…ì´ ì˜ˆìƒ íƒ€ì…ê³¼ ê°™ì„ ë•Œë§Œ ì¢…ë£Œí•©ë‹ˆë‹¤.
+    /// </summary>
+    public void NotifyDodgeAnimationFinished(DodgeType expectedType)
+    {
+        if (isDodging && currentDodgeType == expectedType)
+        {
+            EndDodge();
+        }
+    }
+
+    /// <summary>
+    /// íƒ€ì…/í”„ë¡œí•„/ë„ì°©ì ì´ í¬í•¨ëœ ì™€ì´ì–´ ì´ë™ì„ ì‹œì‘í•©ë‹ˆë‹¤.
+    /// </summary>
+    public bool TryStartWireMove(WireMoveRequest request)
+    {
+        if (isDodging || isAirAttacking || isWireMoving || request.Profile == null)
+        {
+            return false;
+        }
+
+        if (request.ActionType == WireActionType.Suppression)
+        {
+            return false;
+        }
+
+        useLegacyWireRequest = false;
+        currentWireRequest = request;
+        currentWireSpeed = 0f;
+        wireStartDelayTimer = request.Profile.StartDelay;
+        wireTravelTimer = request.Profile.MaximumTravelTime;
+        verticalVelocity = 0f;
+        isWireMoving = true;
+
+        WireMoveStarted?.Invoke(request.ActionType);
+        return true;
+    }
+
+    /// <summary>
+    /// ê¸°ì¡´ ì½”ë“œ/í”„ë¦¬íŒ¹ê³¼ì˜ í˜¸í™˜ì„ ìœ„í•œ ë‹¨ìˆœ ì™€ì´ì–´ ì´ë™ APIì…ë‹ˆë‹¤.
+    /// ì‹ ê·œ êµ¬í˜„ì—ì„œëŠ” WireMoveRequest ì‚¬ìš©ì„ ê¶Œì¥í•©ë‹ˆë‹¤.
+    /// </summary>
+    public bool TryStartWireMove(Vector3 destination)
+    {
+        if (isDodging || isAirAttacking || isWireMoving)
+        {
+            return false;
+        }
+
+        useLegacyWireRequest = true;
+        legacyWireDestination = destination;
+        currentWireSpeed = legacyWireMoveSpeed;
+        wireStartDelayTimer = 0f;
+        wireTravelTimer = 3f;
+        verticalVelocity = 0f;
+        isWireMoving = true;
+
+        WireMoveStarted?.Invoke(WireActionType.Traverse);
+        return true;
+    }
+
+    public void CancelWireMove()
+    {
+        EndWireMove(WireMoveEndReason.Interrupted);
+    }
+
+    public bool TryStartAirAttack()
+    {
+        UpdateGroundedState();
+
+        if (IsGrounded || isAirAttacking || isDodging || isWireMoving)
+        {
+            return false;
+        }
+
+        isAirAttacking = true;
+        airAttackTimer = airAttackDuration;
+
+        if (verticalVelocity < airAttackStartVerticalVelocity)
+        {
+            verticalVelocity = airAttackStartVerticalVelocity;
+        }
+
+        return true;
+    }
+
+    public void EndAirAttack()
+    {
+        isAirAttacking = false;
+        airAttackTimer = 0f;
+    }
+
+    /// <summary>
+    /// Animator ìì‹ ì˜¤ë¸Œì íŠ¸ì˜ OnAnimatorMoveì—ì„œ ì „ë‹¬ëœ ì›”ë“œ ê³µê°„ deltaë¥¼ ì ìš©í•©ë‹ˆë‹¤.
+    /// CharacterController.MoveëŠ” ì†ë„ê°€ ì•„ë‹ˆë¼ ì´ë²ˆ í”„ë ˆì„ì˜ ì´ë™ëŸ‰ì„ ë°›ìœ¼ë¯€ë¡œ deltaTimeì„ ë‹¤ì‹œ ê³±í•˜ì§€ ì•ŠìŠµë‹ˆë‹¤.
+    /// </summary>
+    public void ApplyAnimationRootMotion(
+        Vector3 animationDeltaPosition,
+        Quaternion animationDeltaRotation)
+    {
+        if (!useDodgeRootMotion || !isDodging)
+        {
+            return;
+        }
+
+        ApplyRootMotionPosition(animationDeltaPosition);
+        ApplyRootMotionRotation(animationDeltaRotation);
+    }
+
     private DodgeType DecideDodgeType(Vector2 moveInput, float bufferedSideInput)
     {
-        float sideInput = 0f;
-
-        if (Mathf.Abs(moveInput.x) > 0.01f)
-        {
-            sideInput = moveInput.x;
-        }
-        else if (Mathf.Abs(bufferedSideInput) > 0.01f)
-        {
-            sideInput = bufferedSideInput;
-        }
+        float sideInput = Mathf.Abs(moveInput.x) > 0.01f
+            ? moveInput.x
+            : bufferedSideInput;
 
         if (sideInput < -0.01f)
         {
@@ -230,6 +465,8 @@ public class PlayerMovement : MonoBehaviour
             return DodgeType.Disengage;
         }
 
+        // ê¸°íšìƒ W+Shiftë¥¼ ì „ì§„ íšŒí”¼ë¡œ ì§ì ‘ ì‚¬ìš©í•  ê²½ìš° ë³„ë„ DodgeTypeì„ ì¶”ê°€í•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.
+        // í˜„ì¬ í”„ë¡œì íŠ¸ì˜ ForwardCounterThrustëŠ” ë°±ìŠ¤í… ì¤‘ ê³µê²© ì…ë ¥ìœ¼ë¡œ ë°œë™í•˜ëŠ” í›„ì†ê¸°ì…ë‹ˆë‹¤.
         return DodgeType.Backstep;
     }
 
@@ -240,7 +477,6 @@ public class PlayerMovement : MonoBehaviour
 
         backDirection.y = 0f;
         rightDirection.y = 0f;
-
         backDirection.Normalize();
         rightDirection.Normalize();
 
@@ -250,10 +486,7 @@ public class PlayerMovement : MonoBehaviour
                 return -rightDirection;
             case DodgeType.SideBackstepRight:
                 return rightDirection;
-
             case DodgeType.Disengage:
-                return backDirection;
-
             case DodgeType.Backstep:
             default:
                 return backDirection;
@@ -266,43 +499,94 @@ public class PlayerMovement : MonoBehaviour
         {
             case DodgeType.SideBackstepLeft:
             case DodgeType.SideBackstepRight:
-                currrentDodgeSpeed = sideBackstepSpeed;
-                dodgeTimer = sideBackstepDuration;
+                currentDodgeSpeed = sideBackstepSpeed;
+                dodgeFallbackTimer = GetDodgeEndTimeout(sideBackstepFallbackDuration);
                 break;
             case DodgeType.Disengage:
-                currrentDodgeSpeed = disengageSpeed;
-                dodgeTimer = disengageDuration;
+                currentDodgeSpeed = disengageSpeed;
+                dodgeFallbackTimer = GetDodgeEndTimeout(disengageFallbackDuration);
                 break;
             case DodgeType.Backstep:
             default:
-                currrentDodgeSpeed = backstepSpeed;
-                dodgeTimer = backstepDuration;
+                currentDodgeSpeed = backstepSpeed;
+                dodgeFallbackTimer = GetDodgeEndTimeout(backstepFallbackDuration);
                 break;
         }
     }
 
+    private float GetDodgeEndTimeout(float clipFallbackDuration)
+    {
+        return useAnimationEventDodgeEnd
+            ? Mathf.Max(dodgeSafetyTimeout, clipFallbackDuration)
+            : clipFallbackDuration;
+    }
+
+    private bool CanUseDodgeFollowUpWindow()
+    {
+        if (!isDodging || currentDodgeType != DodgeType.Backstep)
+        {
+            return false;
+        }
+
+        if (requireAnimationEventFollowUpWindow)
+        {
+            return dodgeFollowUpWindowOpen;
+        }
+
+        return dodgeElapsedTime >= fallbackFollowUpWindowStart &&
+               dodgeElapsedTime <= fallbackFollowUpWindowEnd;
+    }
+
     private void UpdateDodge()
     {
-        dodgeTimer -= Time.deltaTime;
+        dodgeElapsedTime += Time.deltaTime;
+        dodgeFallbackTimer -= Time.deltaTime;
 
-        if (useDodgeRootMotion)
+        if (!useDodgeRootMotion)
         {
-            // ¼öÆò ÀÌµ¿°ú È¸ÀüÀº Animator Root Motion
-            // ¿©±â¼­´Â Áß·Â¸¸ CharacterController
-            Vector3 gravityVelocity = Vector3.up * verticalVelocity;
-            characterController.Move(gravityVelocity * Time.deltaTime);
-        }
-        else
-        {
-            Vector3 velocity = dodgeDirection * currrentDodgeSpeed;
+            Vector3 velocity = dodgeDirection * currentDodgeSpeed;
             velocity.y = verticalVelocity;
-
             characterController.Move(velocity * Time.deltaTime);
         }
+        // Root Motion íšŒí”¼ëŠ” OnAnimatorMoveì—ì„œ ìˆ˜í‰ ì´ë™ê³¼ ìˆ˜ì§ ì ‘ì§€ ì´ë™ì„
+        // í•œ ë²ˆì˜ CharacterController.Move í˜¸ì¶œë¡œ í•¨ê»˜ ì ìš©í•©ë‹ˆë‹¤.
+        // ì—¬ê¸°ì„œ ë³„ë„ë¡œ ìˆ˜ì§ Moveë¥¼ í˜¸ì¶œí•˜ë©´ ë’¤ì´ì–´ ì‹¤í–‰ë˜ëŠ” ìˆ˜í‰ Moveê°€
+        // isGroundedë¥¼ falseë¡œ ë®ì–´ì¨ Fall ì „í™˜ì´ ë°œìƒí•  ìˆ˜ ìˆìŠµë‹ˆë‹¤.
 
-        if (dodgeTimer <= 0f)
+        if (lockOnTarget != null && currentDodgeType != DodgeType.ForwardCounterThrust)
+        {
+            RotateToLockOnTarget();
+        }
+
+        DiagnoseForwardCounterRootMotion();
+
+        // Animation Eventê°€ ëˆ„ë½ë˜ê±°ë‚˜ ì „í™˜ì´ ì‹¤íŒ¨í•œ ê²½ìš° ìƒíƒœê°€ ì˜êµ¬ ê³ ì •ë˜ì§€ ì•Šë„ë¡ í•˜ëŠ” ì•ˆì „ì¥ì¹˜ì…ë‹ˆë‹¤.
+        if (dodgeFallbackTimer <= 0f)
         {
             EndDodge();
+        }
+    }
+
+    private void DiagnoseForwardCounterRootMotion()
+    {
+        if (rootMotionWarningPrinted || currentDodgeType != DodgeType.ForwardCounterThrust)
+        {
+            return;
+        }
+
+        if (dodgeElapsedTime < rootMotionDiagnosticDelay)
+        {
+            return;
+        }
+
+        if (horizontalRootMotionAccumulation <= 0.001f)
+        {
+            rootMotionWarningPrinted = true;
+            Debug.LogWarning(
+                "ForwardCounterThrustì˜ ìˆ˜í‰ Root Motionì´ 0ì…ë‹ˆë‹¤. " +
+                "í´ë¦½ì— ì‹¤ì œ Root Motionì´ ìˆëŠ”ì§€, Root Transform Position(XZ) Bake Into Pose OFF, " +
+                "Base Layer ì „ì‹  ìƒíƒœ, DodgeFollowUpTrigger ì „í™˜ ì¡°ê±´ì„ í™•ì¸í•˜ì„¸ìš”."
+            );
         }
     }
 
@@ -310,199 +594,211 @@ public class PlayerMovement : MonoBehaviour
     {
         isDodging = false;
         currentDodgeType = DodgeType.None;
+        dodgeFollowUpWindowOpen = false;
+        dodgeFallbackTimer = 0f;
+        dodgeElapsedTime = 0f;
+        EndDodgeInvulnerability();
     }
 
-    /// <summary>
-    /// Áö¸é Á¢ÃË ÆÇÁ¤
-    /// </summary>
-    private void UpdateGroindedState()
+    private void UpdateWireMove(
+        Vector2 moveInput,
+        bool releasePressed,
+        bool fastDescendHeld)
     {
-        IsGrounded = characterController.isGrounded;
-        if (IsGrounded && verticalVelocity < 0f)
+        if (releasePressed)
         {
-            verticalVelocity = groundedGravity;
-        }
-    }
-
-    /// <summary>
-    /// Á¡ÇÁ ÆÇÁ¤°ú Á¡ÇÁ ¼Óµµ
-    /// </summary>
-    /// <param name="jumpPressed"></param>
-    private void ApplyJump(bool jumpPressed)
-    {
-        if (!jumpPressed)
-        {
-            return;
-        }
-        if (!IsGrounded)
-        {
+            EndWireMove(WireMoveEndReason.Released);
             return;
         }
 
-        verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
+        wireTravelTimer -= Time.deltaTime;
+
+        if (wireTravelTimer <= 0f)
+        {
+            EndWireMove(WireMoveEndReason.Timeout);
+            return;
+        }
+
+        if (useLegacyWireRequest)
+        {
+            UpdateLegacyWireMove();
+            return;
+        }
+
+        WireActionProfile profile = currentWireRequest.Profile;
+
+        if (profile == null)
+        {
+            EndWireMove(WireMoveEndReason.InvalidTarget);
+            return;
+        }
+
+        if (currentWireRequest.ActionType == WireActionType.Rope)
+        {
+            UpdateRopeMove(moveInput.y, fastDescendHeld, profile);
+            return;
+        }
+
+        if (wireStartDelayTimer > 0f)
+        {
+            wireStartDelayTimer -= Time.deltaTime;
+            RotateToWireDirection(currentWireRequest.AnchorPosition - transform.position);
+            return;
+        }
+
+        Vector3 destination = currentWireRequest.Destination;
+        Vector3 toDestination = destination - transform.position;
+        float distance = toDestination.magnitude;
+
+        if (distance <= profile.StopDistance)
+        {
+            EndWireMove(WireMoveEndReason.Completed);
+            return;
+        }
+
+        Vector3 moveDirection = toDestination.normalized;
+        float desiredSpeed = CalculateWireDesiredSpeed(distance, profile);
+        currentWireSpeed = Mathf.MoveTowards(
+            currentWireSpeed,
+            desiredSpeed,
+            profile.Acceleration * Time.deltaTime
+        );
+
+        CollisionFlags collisionFlags = characterController.Move(
+            moveDirection * currentWireSpeed * Time.deltaTime
+        );
+
+        if ((collisionFlags & CollisionFlags.Sides) != 0 && distance > profile.StopDistance * 1.5f)
+        {
+            EndWireMove(WireMoveEndReason.Obstructed);
+            return;
+        }
+
+        RotateToWireDirection(moveDirection);
     }
 
-    /// <summary>
-    /// Áß·Â °¡¼Óµµ
-    /// </summary>
-    private void ApplyGravity()
+    private void UpdateLegacyWireMove()
     {
-        verticalVelocity += gravity * Time.deltaTime;
+        Vector3 toDestination = legacyWireDestination - transform.position;
+        float distance = toDestination.magnitude;
+
+        if (distance <= legacyWireStopDistance)
+        {
+            EndWireMove(WireMoveEndReason.Completed);
+            return;
+        }
+
+        Vector3 moveDirection = toDestination.normalized;
+        CollisionFlags collisionFlags = characterController.Move(
+            moveDirection * legacyWireMoveSpeed * Time.deltaTime
+        );
+
+        if ((collisionFlags & CollisionFlags.Sides) != 0)
+        {
+            EndWireMove(WireMoveEndReason.Obstructed);
+            return;
+        }
+
+        RotateToWireDirection(moveDirection);
     }
 
-    public void ApplyAnimationRootMotion(Vector3 animationDeltaPosition, Quaternion animationDeltaRotation)
+    private void UpdateRopeMove(
+        float verticalInput,
+        bool fastDescendHeld,
+        WireActionProfile profile)
     {
-        if (!useDodgeRootMotion)
+        Vector3 anchorPosition = currentWireRequest.AnchorPosition;
+        Vector3 playerPosition = transform.position;
+
+        Vector3 flatCorrection = anchorPosition - playerPosition;
+        flatCorrection.y = 0f;
+
+        Vector3 correctionVelocity = Vector3.zero;
+        float clearance = profile.RopeWallClearance;
+
+        if (flatCorrection.magnitude > clearance)
+        {
+            correctionVelocity = flatCorrection.normalized * profile.MoveSpeed;
+        }
+
+        float verticalSpeed = 0f;
+
+        if (verticalInput > 0.1f)
+        {
+            verticalSpeed = profile.RopeAscendSpeed;
+        }
+        else if (verticalInput < -0.1f)
+        {
+            verticalSpeed = fastDescendHeld
+                ? -profile.RopeFastDescendSpeed
+                : -profile.RopeDescendSpeed;
+        }
+
+        Vector3 velocity = correctionVelocity + Vector3.up * verticalSpeed;
+        characterController.Move(velocity * Time.deltaTime);
+
+        if (verticalSpeed > 0f && transform.position.y >= currentWireRequest.RopeTopPosition.y)
+        {
+            EndWireMove(WireMoveEndReason.Completed);
+        }
+        else if (verticalSpeed < 0f && transform.position.y <= currentWireRequest.RopeBottomPosition.y)
+        {
+            EndWireMove(WireMoveEndReason.Completed);
+        }
+
+        RotateToWireDirection(anchorPosition - transform.position);
+    }
+
+    private float CalculateWireDesiredSpeed(float distance, WireActionProfile profile)
+    {
+        if (profile.DecelerationDistance <= 0f || distance >= profile.DecelerationDistance)
+        {
+            return profile.MoveSpeed;
+        }
+
+        float ratio = Mathf.Clamp01(distance / profile.DecelerationDistance);
+        ratio = Mathf.Max(profile.MinimumDecelerationRatio, ratio);
+        return profile.MoveSpeed * ratio;
+    }
+
+    private void EndWireMove(WireMoveEndReason reason)
+    {
+        if (!isWireMoving)
         {
             return;
         }
 
-        if (!isDodging)
-        {
-            return;
-        }
+        WireActionType endedType = useLegacyWireRequest
+            ? WireActionType.Traverse
+            : currentWireRequest.ActionType;
 
-        ApplyRootMotionPosition(animationDeltaPosition);
-        ApplyRootMotionRotation(animationDeltaRotation);
+        isWireMoving = false;
+        useLegacyWireRequest = false;
+        currentWireSpeed = 0f;
+        wireStartDelayTimer = 0f;
+        wireTravelTimer = 0f;
+        verticalVelocity = groundedGravity;
+
+        WireMoveEnded?.Invoke(endedType, reason);
     }
 
-    private void ApplyRootMotionPosition(Vector3 animationDeltaPosition)
-    {
-        Vector3 horizontalDelta = animationDeltaPosition;
-        horizontalDelta.y = 0f;
-
-        characterController.Move(horizontalDelta);
-    }
-
-    private void ApplyRootMotionRotation(Quaternion animationDeltaRotation)
-    {
-        if (!useDodgeRootRotation)
-        {
-            return;
-        }
-
-        if (!ShouldApplyRootRotation())
-        {
-            return;
-        }
-
-        Vector3 deltaEuler = animationDeltaRotation.eulerAngles;
-        Quaternion yawRotation = Quaternion.Euler(0f, deltaEuler.y, 0f);
-
-        transform.rotation = transform.rotation * yawRotation;
-    }
-
-    private bool ShouldApplyRootRotation()
-    {
-        switch (currentDodgeType)
-        {
-            case DodgeType.Disengage:
-                return true;
-
-            case DodgeType.ForwardCounterThrust:
-                return true;
-
-            case DodgeType.Backstep:
-            case DodgeType.SideBackstepLeft:
-            case DodgeType.SideBackstepRight:
-            default:
-                return false;
-        }
-    }
-
-    /// <summary>
-    /// ÀÔ·Â°ªÀ» Ä«¸Ş¶ó ±âÁØÀ¸·Î ÀÌµ¿ ¹æÇâ Ã³¸®
-    /// </summary>
-    /// <param name="moveInput">ÀÌµ¿ ÀÔ·Â°ª</param>
-    /// <returns>Ä«¸Ş¶ó ±âÁØ ¿ùµå ÀÌµ¿ ¹æÇâ</returns>
-    private Vector3 CalculateCamerRelativeDirection(Vector2 moveInput)
-    {
-        Vector3 cameraForward = cameraTransform.forward;
-        Vector3 cameraRight = cameraTransform.right;
-
-        cameraForward.y = 0f;
-        cameraRight.y = 0f;
-
-        cameraForward.Normalize();
-        cameraRight.Normalize();
-
-        Vector3 moveDirection = cameraForward * moveInput.y + cameraRight * moveInput.x;
-        if (moveDirection.sqrMagnitude > 1f)
-        {
-            moveDirection.Normalize();
-        }
-        return moveDirection;
-    }
-
-    /// <summary>
-    /// ÇÃ·¹ÀÌ¾î ÀÌµ¿ ¹æÇâ º¸Á¤ 
-    /// </summary>
-    /// <param name="moveDirection">ÇÃ·¹ÀÌ¾î°¡ ¹Ù¶óº¸´Â ¹æÇâ</param>
-
-    private void RotateToMoveDirection(Vector3 moveDirection)
-    {
-        Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
-
-        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
-    }
-
-    /// <summary>
-    /// °øÁß°ø°İ »óÅÂÃ³¸®
-    /// ½ÇÁ¦ Á¡ÇÁ´Â ±âÁ¸ Á¡ÇÁ¿Í Áß·Â ÄÚµå°¡ Ã³¸®ÇÏ°í
-    /// Ã¤°ø ³«ÇÏ¼Óµµ¸¸ º¸Á¤ Ã³¸®
-    /// </summary>
-    /// <returns></returns>
-    public bool TryStartAirAttack()
-    {
-        UpdateGroindedState();
-
-        if (IsGrounded)
-        {
-            return false;
-        }
-
-        if (isAirAttacking)
-        {
-            return false;
-        }
-
-        if (isDodging)
-        {
-            return false;
-        }
-
-        isAirAttacking = true;
-        airAttackTimer = airAttackDuration;
-
-        if (verticalVelocity < airAttackStartVerticalVelocity)
-        {
-            verticalVelocity = airAttackStartVerticalVelocity;
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// °øÁß °ø°İÁß Áß·ÂÃ³¸® °ø°İ¸ğ¼ÇÁß Ã¼°ø°¡´ÉÇÏµµ·ÏÇØÁÖ´Â ÇÔ¼ö
-    /// </summary>
-    /// <param name="moveInput"></param>
     private void UpdateAirAttack(Vector2 moveInput)
     {
         airAttackTimer -= Time.deltaTime;
-
         verticalVelocity += gravity * airAttackGravityMultiplier * Time.deltaTime;
 
-        Vector3 horizontalDirection = Vector3.zero;
-
-        if (allowAirAttackHorizontalControl)
-        {
-            horizontalDirection = CalculateCamerRelativeDirection(moveInput);
-        }
+        Vector3 horizontalDirection = allowAirAttackHorizontalControl
+            ? CalculateCameraRelativeDirection(moveInput)
+            : Vector3.zero;
 
         Vector3 velocity = horizontalDirection * walkSpeed;
         velocity.y = verticalVelocity;
-
         characterController.Move(velocity * Time.deltaTime);
+
+        if (lockOnTarget != null)
+        {
+            RotateToLockOnTarget();
+        }
 
         if ((characterController.isGrounded && verticalVelocity <= 0f) || airAttackTimer <= 0f)
         {
@@ -510,13 +806,172 @@ public class PlayerMovement : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// °øÁß°ø°İ »óÅÂ ÃÊ±âÈ­
-    /// </summary>
-    public void EndAirAttack()
+    private void UpdateGroundedState()
     {
-        isAirAttacking = false;
-        airAttackTimer = 0f;
+        IsGrounded = characterController.isGrounded;
+
+        if (IsGrounded && verticalVelocity < 0f)
+        {
+            verticalVelocity = groundedGravity;
+        }
     }
 
+    private void ApplyJump(bool jumpPressed)
+    {
+        if (!jumpPressed || !IsGrounded)
+        {
+            return;
+        }
+
+        verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
+        JumpStartedThisFrame = true;
+    }
+
+    private void ApplyGravity()
+    {
+        verticalVelocity += gravity * Time.deltaTime;
+    }
+
+    private Vector3 CalculateCameraRelativeDirection(Vector2 moveInput)
+    {
+        Vector3 cameraForward = cameraTransform.forward;
+        Vector3 cameraRight = cameraTransform.right;
+
+        cameraForward.y = 0f;
+        cameraRight.y = 0f;
+        cameraForward.Normalize();
+        cameraRight.Normalize();
+
+        Vector3 moveDirection = cameraForward * moveInput.y + cameraRight * moveInput.x;
+
+        if (moveDirection.sqrMagnitude > 1f)
+        {
+            moveDirection.Normalize();
+        }
+
+        return moveDirection;
+    }
+
+    private void RotateToMoveDirection(Vector3 moveDirection)
+    {
+        Quaternion targetRotation = Quaternion.LookRotation(moveDirection);
+        transform.rotation = Quaternion.RotateTowards(
+            transform.rotation,
+            targetRotation,
+            rotationSpeed * Time.deltaTime
+        );
+    }
+
+    private void RotateToLockOnTarget()
+    {
+        if (lockOnTarget == null)
+        {
+            return;
+        }
+
+        Vector3 direction = lockOnTarget.position - transform.position;
+        direction.y = 0f;
+
+        if (direction.sqrMagnitude <= 0.001f)
+        {
+            return;
+        }
+
+        Quaternion targetRotation = Quaternion.LookRotation(direction.normalized);
+        transform.rotation = Quaternion.RotateTowards(
+            transform.rotation,
+            targetRotation,
+            lockOnRotationSpeed * Time.deltaTime
+        );
+    }
+
+    private void RotateToWireDirection(Vector3 moveDirection)
+    {
+        Vector3 flatDirection = moveDirection;
+        flatDirection.y = 0f;
+
+        if (flatDirection.sqrMagnitude <= 0.001f)
+        {
+            return;
+        }
+
+        Quaternion targetRotation = Quaternion.LookRotation(flatDirection.normalized);
+        transform.rotation = Quaternion.RotateTowards(
+            transform.rotation,
+            targetRotation,
+            wireRotationSpeed * Time.deltaTime
+        );
+    }
+
+    private void ApplyRootMotionPosition(Vector3 animationDeltaPosition)
+    {
+        Vector3 horizontalDelta = animationDeltaPosition;
+        horizontalDelta.y = 0f;
+
+        if (currentDodgeType == DodgeType.ForwardCounterThrust &&
+            alignForwardCounterRootMotionToFacing &&
+            horizontalDelta.sqrMagnitude > 0.000001f)
+        {
+            float magnitude = horizontalDelta.magnitude;
+            horizontalDelta = transform.forward * magnitude;
+        }
+
+        horizontalDelta *= GetCurrentDodgeRootMotionMultiplier();
+        horizontalRootMotionAccumulation += horizontalDelta.magnitude;
+
+        // CharacterController.isGroundedëŠ” ë§ˆì§€ë§‰ Move ê²°ê³¼ì— ì˜í–¥ì„ ë°›ìŠµë‹ˆë‹¤.
+        // ìˆ˜í‰ Root Motionë§Œ ë³„ë„ë¡œ ì ìš©í•˜ë©´ í‰ì§€ì—ì„œë„ Below í”Œë˜ê·¸ê°€ ì‚¬ë¼ì§ˆ ìˆ˜ ìˆìœ¼ë¯€ë¡œ,
+        // ì¤‘ë ¥/ì ‘ì§€ìš© Y ì´ë™ì„ ê°™ì€ Moveì— í¬í•¨í•©ë‹ˆë‹¤.
+        Vector3 combinedDelta = horizontalDelta;
+        combinedDelta.y = verticalVelocity * Time.deltaTime;
+
+        CollisionFlags flags = characterController.Move(combinedDelta);
+        bool groundedByMove = (flags & CollisionFlags.Below) != 0;
+        IsGrounded = groundedByMove || characterController.isGrounded;
+
+        if (IsGrounded && verticalVelocity < 0f)
+        {
+            verticalVelocity = groundedGravity;
+        }
+    }
+
+    private float GetCurrentDodgeRootMotionMultiplier()
+    {
+        switch (currentDodgeType)
+        {
+            case DodgeType.SideBackstepLeft:
+            case DodgeType.SideBackstepRight:
+                return sideBackstepRootMotionMultiplier;
+            case DodgeType.ForwardCounterThrust:
+                return forwardCounterRootMotionMultiplier;
+            case DodgeType.Disengage:
+                return disengageRootMotionMultiplier;
+            case DodgeType.Backstep:
+            default:
+                return backstepRootMotionMultiplier;
+        }
+    }
+
+    private void ApplyRootMotionRotation(Quaternion animationDeltaRotation)
+    {
+        if (!useDodgeRootRotation || !ShouldApplyRootRotation())
+        {
+            return;
+        }
+
+        float yaw = animationDeltaRotation.eulerAngles.y;
+
+        if (yaw > 180f)
+        {
+            yaw -= 360f;
+        }
+
+        transform.rotation *= Quaternion.Euler(0f, yaw, 0f);
+    }
+
+    private bool ShouldApplyRootRotation()
+    {
+        return currentDodgeType == DodgeType.Disengage ||
+               currentDodgeType == DodgeType.ForwardCounterThrust;
+    }
 }

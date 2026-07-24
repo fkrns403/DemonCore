@@ -1,23 +1,36 @@
 using State;
 using UnityEngine;
-using UnityEngine.Animations;
 
-[RequireComponent (typeof(PlayerInputReader))]
+/// <summary>
+/// PlayerController, PlayerMovement, PlayerDefenseì—ì„œ ê²°ì •í•œ ìƒíƒœë¥¼ Animator íŒŒë¼ë¯¸í„°ë¡œ ì „ë‹¬í•©ë‹ˆë‹¤.
+/// ê³µê²© íŒë‹¨ì€ í•˜ì§€ ì•Šê³ , ì• ë‹ˆë©”ì´ì…˜ íŒŒë¼ë¯¸í„° ì „ë‹¬ê³¼ ë¬´ê¸° í‘œì‹œ ìƒíƒœë§Œ ë‹´ë‹¹í•©ë‹ˆë‹¤.
+/// </summary>
+[DefaultExecutionOrder(-50)]
+[RequireComponent(typeof(PlayerInputReader))]
 [RequireComponent(typeof(PlayerController))]
 [RequireComponent(typeof(PlayerMovement))]
 public class PlayerAnimatorController : MonoBehaviour
 {
     [Header("References")]
-    [SerializeField,Tooltip("Ä³¸¯ÅÍ ¸ğµ¨ ¿ÀºêÁ§Æ® Ç×¸ñ  Animator")]
+    [SerializeField, Tooltip("ìºë¦­í„° ëª¨ë¸ ì˜¤ë¸Œì íŠ¸ì— ë¶™ì–´ ìˆëŠ” Animatorì…ë‹ˆë‹¤.")]
     private Animator animator;
 
+    [SerializeField] private PlayerDefense playerDefense;
+    [SerializeField] private PlayerWireController playerWireController;
+    [SerializeField] private PlayerWeaponVisibilityController weaponVisibilityController;
+
     [Header("Animation Settings")]
-    [SerializeField,Tooltip("Speed ÆÄ¶ó¹ÌÅÍ°¡ ºÎµå·´°Ô º¯È¯µÇ´Â ½Ã°£")]
+    [SerializeField, Tooltip("Speed íŒŒë¼ë¯¸í„°ê°€ ë¶€ë“œëŸ½ê²Œ ë³€í•˜ëŠ” ì‹œê°„ì…ë‹ˆë‹¤.")]
     private float speedDampTime = 0.08f;
 
-    [SerializeField, Tooltip("°ø°İ/ÀüÅõ Çàµ¿ÈÄ ¹«±â ÁØºñ ÀÚ¼¼¸¦ À¯ÁöÇÏ´Â ½Ã°£")]
+    [SerializeField, Tooltip("ê³µê²©/ê°€ë“œ/íšŒí”¼ í›„ ë¬´ê¸° ì¤€ë¹„ ìì„¸ë¥¼ ìœ ì§€í•˜ëŠ” ì‹œê°„ì…ë‹ˆë‹¤.")]
     private float weaponReadyDuration = 4.0f;
 
+    [SerializeField, Tooltip("íšŒí”¼ í›„ì—ë„ ë¬´ê¸° ì¤€ë¹„ ìì„¸ë¥¼ ìœ ì§€í• ì§€ ì—¬ë¶€ì…ë‹ˆë‹¤.")]
+    private bool keepWeaponReadyAfterDodge = true;
+
+    [SerializeField, Tooltip("ì™€ì´ì–´ ì´ë™ ì¤‘ì—ë„ ë¬´ê¸°ë¥¼ ë³´ì´ê²Œ í• ì§€ ì—¬ë¶€ì…ë‹ˆë‹¤.")]
+    private bool showWeaponDuringWireMove = false;
 
     private PlayerInputReader inputReader;
     private PlayerController playerController;
@@ -26,25 +39,74 @@ public class PlayerAnimatorController : MonoBehaviour
     private float weaponReadyTimer;
 
     private static readonly int SpeedHash = Animator.StringToHash("Speed");
+    private static readonly int MoveXHash = Animator.StringToHash("MoveX");
+    private static readonly int MoveYHash = Animator.StringToHash("MoveY");
+    private static readonly int IsLockedOnHash = Animator.StringToHash("IsLockedOn");
+
+    private static readonly int IsGroundedHash = Animator.StringToHash("IsGrounded");
+    private static readonly int IsFallingHash = Animator.StringToHash("IsFalling");
+    private static readonly int VerticalSpeedHash = Animator.StringToHash("VerticalSpeed");
+    private static readonly int JumpTriggerHash = Animator.StringToHash("JumpTrigger");
+    private static readonly int LandTriggerHash = Animator.StringToHash("LandTrigger");
+
     private static readonly int IsWeaponReadyHash = Animator.StringToHash("IsWeaponReady");
     private static readonly int WeaponReadyTriggerHash = Animator.StringToHash("WeaponReadyTrigger");
+
     private static readonly int AttackTriggerHash = Animator.StringToHash("AttackTrigger");
-    private static readonly int DodgeTriggerHash = Animator.StringToHash("DodgeTrigger");
-    private static readonly int DodgeTypeHash = Animator.StringToHash("DodgeType");
     private static readonly int AttackTypeHash = Animator.StringToHash("AttackType");
     private static readonly int ComboIndexHash = Animator.StringToHash("ComboIndex");
 
+    private static readonly int DodgeTriggerHash = Animator.StringToHash("DodgeTrigger");
+    private static readonly int IsDodgingHash = Animator.StringToHash("IsDodging");
+    private static readonly int DodgeTypeHash = Animator.StringToHash("DodgeType");
+    private static readonly int DodgeFollowUpTriggerHash = Animator.StringToHash("DodgeFollowUpTrigger");
 
-    private bool IsWeaponReady => weaponReadyTimer > 0;
+    private static readonly int IsGuardingHash = Animator.StringToHash("IsGuarding");
+    private static readonly int ParryTriggerHash = Animator.StringToHash("ParryTrigger");
+    private static readonly int ParrySuccessTriggerHash = Animator.StringToHash("ParrySuccessTrigger");
+    private static readonly int CounterTriggerHash = Animator.StringToHash("CounterTrigger");
+
+    private static readonly int IsWireMovingHash = Animator.StringToHash("IsWireMoving");
+    private static readonly int WireTriggerHash = Animator.StringToHash("WireTrigger");
+
+    public bool IsWeaponReady => weaponReadyTimer > 0f;
 
     private void Awake()
     {
         inputReader = GetComponent<PlayerInputReader>();
         playerController = GetComponent<PlayerController>();
         playerMovement = GetComponent<PlayerMovement>();
+
+        if (playerDefense == null)
+        {
+            playerDefense = GetComponent<PlayerDefense>();
+        }
+
+        if (playerWireController == null)
+        {
+            playerWireController = GetComponent<PlayerWireController>();
+        }
+
+        if (weaponVisibilityController == null)
+        {
+            weaponVisibilityController = GetComponentInChildren<PlayerWeaponVisibilityController>();
+        }
+
+        if (animator == null)
+        {
+            animator = GetComponentInChildren<Animator>();
+        }
     }
 
-    private void LateUpdate()
+    private void Start()
+    {
+        if (weaponVisibilityController != null)
+        {
+            weaponVisibilityController.SetWeaponVisible(false, true);
+        }
+    }
+
+    private void Update()
     {
         if (animator == null)
         {
@@ -52,39 +114,136 @@ public class PlayerAnimatorController : MonoBehaviour
         }
 
         UpdateMovementAnimation();
+        UpdateJumpFallAnimation();
         UpdateAttackAnimatorParameter();
         UpdateWeaponReadyTimer();
+
         UpdateAttackAnimation();
         UpdateDodgeAnimation();
         UpdateDodgeCounterAnimation();
+        UpdateDefenseAnimation();
+        UpdateWireAnimation();
+
         UpdateWeaponReadyParameter();
+        UpdateWeaponVisibility();
     }
 
     /// <summary>
-    /// ÀÌµ¿ ÀÔ·Â °ªÀ» speed·Î Àü´Ş
+    /// ì‹¤ì œ í–‰ë™ ìš°ì„ ìˆœìœ„ì— ë§ì¶° ì´ë™ Blend Tree íŒŒë¼ë¯¸í„°ë¥¼ ê°±ì‹ í•©ë‹ˆë‹¤.
+    /// íšŒí”¼, ì™€ì´ì–´, ê³µê²©ì²˜ëŸ¼ ì „ì‹  í–‰ë™ì´ ì‹¤í–‰ ì¤‘ì´ë©´ ì´ë™ íŒŒë¼ë¯¸í„°ë¥¼ 0ìœ¼ë¡œ ê³ ì •í•©ë‹ˆë‹¤.
     /// </summary>
     private void UpdateMovementAnimation()
     {
+        bool suppressLocomotion =
+            playerMovement.IsDodging ||
+            playerMovement.IsWireMoving ||
+            playerController.IsAttackLocked;
+
+        if (suppressLocomotion)
+        {
+            animator.SetFloat(
+                SpeedHash,
+                0f,
+                speedDampTime,
+                Time.deltaTime
+            );
+
+            animator.SetFloat(
+                MoveXHash,
+                0f,
+                speedDampTime,
+                Time.deltaTime
+            );
+
+            animator.SetFloat(
+                MoveYHash,
+                0f,
+                speedDampTime,
+                Time.deltaTime
+            );
+
+            // ì´ë™ì€ ë§‰ì•„ë„ ë½ì˜¨ ìì²´ëŠ” ìœ ì§€í•©ë‹ˆë‹¤.
+            animator.SetBool(
+                IsLockedOnHash,
+                playerMovement.IsLockedOn
+            );
+
+            return;
+        }
+
         float speedValue = 0f;
+
         if (inputReader.MoveInput.sqrMagnitude > 0.01f)
         {
             speedValue = inputReader.SprintHeld ? 1f : 0.5f;
         }
-        if (playerController.IsAttackLocked || playerMovement.IsDodging)
+
+        float moveX;
+        float moveY;
+
+        if (playerMovement.IsLockedOn)
         {
-            speedValue = 0f;
+            moveX = inputReader.MoveInput.x;
+            moveY = inputReader.MoveInput.y;
+        }
+        else
+        {
+            moveX = 0f;
+            moveY = speedValue > 0.01f ? 1f : 0f;
         }
 
+        animator.SetFloat(
+            SpeedHash,
+            speedValue,
+            speedDampTime,
+            Time.deltaTime
+        );
 
-        animator.SetFloat(SpeedHash, speedValue, speedDampTime, Time.deltaTime);
+        animator.SetFloat(
+            MoveXHash,
+            moveX,
+            speedDampTime,
+            Time.deltaTime
+        );
+
+        animator.SetFloat(
+            MoveYHash,
+            moveY,
+            speedDampTime,
+            Time.deltaTime
+        );
+
+        animator.SetBool(
+            IsLockedOnHash,
+            playerMovement.IsLockedOn
+        );
     }
-    
-    /// <summary>
-    /// ¹«±â ÁØºñ ÀÚ¼¼ À¯Áö ½Ã°£¿¬»ê
-    /// </summary>
+
+    private void UpdateJumpFallAnimation()
+    {
+        bool isDodging = playerMovement.IsDodging;
+        bool suppressAirTransition = isDodging || playerMovement.IsWireMoving;
+
+        // íšŒí”¼ Root Motion ì¤‘ CharacterController.isGroundedê°€ í•œ í”„ë ˆì„ í”ë“¤ë ¤ë„
+        // Air/Fall ìƒíƒœê°€ íšŒí”¼ë¥¼ ì¤‘ê°„ì— ëŠì§€ ì•Šë„ë¡ í–‰ë™ ìš°ì„ ìˆœìœ„ë¥¼ Animatorì—ë„ ì „ë‹¬í•©ë‹ˆë‹¤.
+        animator.SetBool(IsDodgingHash, isDodging);
+        animator.SetBool(IsGroundedHash, suppressAirTransition || playerMovement.IsGrounded);
+        animator.SetBool(IsFallingHash, !suppressAirTransition && playerMovement.IsFalling);
+        animator.SetFloat(VerticalSpeedHash, playerMovement.VerticalVelocity);
+
+        if (playerMovement.JumpStartedThisFrame)
+        {
+            animator.SetTrigger(JumpTriggerHash);
+        }
+
+        if (playerMovement.LandedThisFrame && !suppressAirTransition)
+        {
+            animator.SetTrigger(LandTriggerHash);
+        }
+    }
+
     private void UpdateWeaponReadyTimer()
     {
-        
         if (weaponReadyTimer <= 0f)
         {
             weaponReadyTimer = 0f;
@@ -93,45 +252,49 @@ public class PlayerAnimatorController : MonoBehaviour
 
         weaponReadyTimer -= Time.deltaTime;
     }
+
+    private void KeepWeaponReady()
+    {
+        weaponReadyTimer = weaponReadyDuration;
+    }
+
     /// <summary>
-    /// playerController¿¡¼­ °áÁ¤ÇÑ °ø°İÅ¸ÀÔ°ú ÄŞº¸ ¹øÈ£¸¦ animator¿¡ Àü´Ş
+    /// ë¹„ì „íˆ¬ ìƒíƒœì—ì„œ ì²˜ìŒ ê³µê²©/ê°€ë“œ/íŒ¨ë§ì„ í–ˆì„ ë•Œ Base Layerë¥¼ ì „íˆ¬ ì¤€ë¹„ ì„œë¸ŒíŠ¸ë¦¬ë¡œ ë³´ë‚´ê¸° ìœ„í•œ Triggerì…ë‹ˆë‹¤.
+    /// ì´ë¯¸ ì¤€ë¹„ ìƒíƒœì—¬ë„ Triggerë¥¼ ë‹¤ì‹œ ì´ë„ í° ë¬¸ì œëŠ” ì—†ì§€ë§Œ, ë¶ˆí•„ìš”í•œ ì¬ì§„ì…ì„ ì¤„ì´ê¸° ìœ„í•´ ì²˜ìŒ ì§„ì… ì‹œì ì—ë§Œ í˜¸ì¶œí•©ë‹ˆë‹¤.
     /// </summary>
+    private void RequestWeaponReadyEnterIfNeeded(bool wasWeaponReady)
+    {
+        if (!wasWeaponReady)
+        {
+            animator.SetTrigger(WeaponReadyTriggerHash);
+        }
+    }
+
     private void UpdateAttackAnimatorParameter()
     {
         animator.SetInteger(AttackTypeHash, (int)playerController.CurrentAttackType);
         animator.SetInteger(ComboIndexHash, playerController.CurrentComboIndex);
     }
 
-    /// <summary>
-    /// °ø°İ ÀÔ·ÂÀÌ µé¾î¿À¸é ¹«±â ÁØºñ »óÅÂ ¿©ºÎ¿¡ µû¶ó
-    /// ÁØºñ ÀÚ¼¼ ÁøÀÔ ¶Ç´Â Áï½Ã °ø°İ ¾Ö´Ï¸ŞÀÌ¼ÇÀ» ½ÇÇà
-    /// </summary>
     private void UpdateAttackAnimation()
     {
-        
         if (!playerController.AttackStartedThisFrame)
         {
             return;
         }
 
         bool wasWeaponReady = IsWeaponReady;
+        KeepWeaponReady();
+        RequestWeaponReadyEnterIfNeeded(wasWeaponReady);
 
-        weaponReadyTimer = weaponReadyDuration;
+        // ê¸°ì¡´ ì½”ë“œëŠ” ì²« ê³µê²© ì…ë ¥ ë•Œ WeaponReadyTriggerë§Œ ë³´ë‚´ì„œ AttackTriggerê°€ ì‹¤í–‰ë˜ì§€ ì•ŠëŠ” ë¬¸ì œê°€ ìˆì—ˆìŠµë‹ˆë‹¤.
+        // ì´ì œ ì²« ê³µê²©ë„ ë¬´ê¸° í‘œì‹œ/ë°œë„ ì¤€ë¹„ì™€ ë™ì‹œì— UpperBodyCombat ê³µê²© ë ˆì´ì–´ë¥¼ ì •ìƒ ì¬ìƒí•©ë‹ˆë‹¤.
+        animator.SetTrigger(AttackTriggerHash);
 
         Debug.Log(
-        $"Attack Animation Request : " +
-        $"{playerController.CurrentAttackType} / Combo {playerController.CurrentComboIndex}"
-    );
-
-
-        if (wasWeaponReady)
-        {
-            animator.SetTrigger(AttackTriggerHash);
-        }
-        else
-        {
-            animator.SetTrigger(WeaponReadyTriggerHash);
-        }
+            $"Attack Animation Request : " +
+            $"{playerController.CurrentAttackType} / Combo {playerController.CurrentComboIndex}"
+        );
     }
 
     private void UpdateDodgeAnimation()
@@ -141,14 +304,71 @@ public class PlayerAnimatorController : MonoBehaviour
             return;
         }
 
-        weaponReadyTimer = weaponReadyDuration;
+        if (keepWeaponReadyAfterDodge && IsWeaponReady)
+        {
+            KeepWeaponReady();
+        }
 
         DodgeType dodgeType = playerController.StartedDodgeTypeThisFrame;
 
         Debug.Log($"Dodge Animation Request : {dodgeType} / {(int)dodgeType}");
 
-        animator.SetInteger(DodgeTypeHash, (int)playerController.StartedDodgeTypeThisFrame);
+        animator.SetInteger(DodgeTypeHash, (int)dodgeType);
         animator.SetTrigger(DodgeTriggerHash);
+    }
+
+    private void UpdateDefenseAnimation()
+    {
+        if (playerDefense == null)
+        {
+            return;
+        }
+
+        animator.SetBool(IsGuardingHash, playerDefense.IsGuarding);
+
+        bool defenseRequested =
+            playerDefense.IsGuarding ||
+            playerDefense.IsParryActive ||
+            playerDefense.ParryStartedThisFrame ||
+            playerDefense.ParrySucceededThisFrame;
+
+        if (defenseRequested)
+        {
+            bool wasWeaponReady = IsWeaponReady;
+            KeepWeaponReady();
+            RequestWeaponReadyEnterIfNeeded(wasWeaponReady);
+        }
+
+        if (playerDefense.ParryStartedThisFrame)
+        {
+            animator.SetTrigger(ParryTriggerHash);
+        }
+
+        if (playerDefense.ParrySucceededThisFrame)
+        {
+            animator.SetTrigger(ParrySuccessTriggerHash);
+        }
+
+        if (playerDefense.CounterStartedThisFrame || playerController.ParryCounterStartedThisFrame)
+        {
+            KeepWeaponReady();
+            animator.SetTrigger(CounterTriggerHash);
+        }
+    }
+
+    private void UpdateWireAnimation()
+    {
+        animator.SetBool(IsWireMovingHash, playerMovement.IsWireMoving);
+
+        if (playerWireController != null && playerWireController.WireStartedThisFrame)
+        {
+            animator.SetTrigger(WireTriggerHash);
+
+            if (showWeaponDuringWireMove)
+            {
+                KeepWeaponReady();
+            }
+        }
     }
 
     private void UpdateDodgeCounterAnimation()
@@ -158,22 +378,34 @@ public class PlayerAnimatorController : MonoBehaviour
             return;
         }
 
-        weaponReadyTimer = weaponReadyDuration;
+        KeepWeaponReady();
 
         DodgeType dodgeType = playerController.StartedDodgeTypeThisFrame;
 
         Debug.Log($"Dodge Counter Request : {dodgeType} / {(int)dodgeType}");
 
-        // ÀÌ¹Ì DodgeStateMachine ¾È¿¡ ÀÖÀ¸¹Ç·Î Trigger¸¦ ´Ù½Ã ½îÁö ¾Ê½À´Ï´Ù.
-        // Quickshift_B ¡æ Sp_Skill3 Á¶°ÇÀÎ DodgeType == 4¸¸ ¸¸Á·½ÃÅ°¸é µË´Ï´Ù.
         animator.SetInteger(DodgeTypeHash, (int)dodgeType);
+        animator.SetTrigger(DodgeFollowUpTriggerHash);
     }
 
-    /// <summary>
-    /// ÇöÀç ¹«±â ÁØºñ »óÅÂ¸¦ Animator Bool ÆÄ¶ó¹ÌÅÍ·Î Àü´Ş
-    /// </summary>
     private void UpdateWeaponReadyParameter()
     {
         animator.SetBool(IsWeaponReadyHash, IsWeaponReady);
+    }
+
+    private void UpdateWeaponVisibility()
+    {
+        if (weaponVisibilityController == null)
+        {
+            return;
+        }
+
+        bool shouldShowWeapon =
+            IsWeaponReady ||
+            playerController.IsAttackLocked ||
+            (playerMovement.IsDodging && IsWeaponReady) ||
+            (playerDefense != null && (playerDefense.IsGuarding || playerDefense.IsParryActive));
+
+        weaponVisibilityController.SetWeaponVisible(shouldShowWeapon);
     }
 }

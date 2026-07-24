@@ -1,64 +1,102 @@
 using State;
-using Unity.Android.Gradle.Manifest;
 using UnityEngine;
 
-
 /// <summary>
-/// ÇÃ·¹ÀÌ¾î Áß½ÉÁ¦¾î
-/// playerInputReader ÀÇ ÀÔ·ÂÀ» ÀĞ°í PlayerState¸¦ ÀüÈ¯
-/// 
+/// í”Œë ˆì´ì–´ ì¤‘ì‹¬ ì œì–´ í´ë˜ìŠ¤ì…ë‹ˆë‹¤.
+/// PlayerInputReaderì˜ ì…ë ¥ì„ ì½ê³ , ê³µê²©/íšŒí”¼/ê°€ë“œ/íŒ¨ë§/ì™€ì´ì–´/ë½ì˜¨ ìƒíƒœë¥¼ ì—°ê²°í•©ë‹ˆë‹¤.
+/// ì‹¤ì œ ì´ë™ì€ PlayerMovementê°€ ë‹´ë‹¹í•˜ê³ ,
+/// ì‹¤ì œ ì• ë‹ˆë©”ì´ì…˜ íŒŒë¼ë¯¸í„° ì „ë‹¬ì€ PlayerAnimatorControllerê°€ ë‹´ë‹¹í•©ë‹ˆë‹¤.
 /// </summary>
+[DefaultExecutionOrder(-100)]
 [RequireComponent(typeof(PlayerInputReader))]
 [RequireComponent(typeof(PlayerMovement))]
 public class PlayerController : MonoBehaviour
 {
     [Header("Debug")]
-    [SerializeField,Tooltip("true¸é »óÅÂ º¯°æ½Ã ·Î±× »ı¼º")]
+    [SerializeField, Tooltip("trueë©´ ìƒíƒœ ë³€ê²½ ì‹œ ë¡œê·¸ë¥¼ ì¶œë ¥í•©ë‹ˆë‹¤.")]
     private bool showDebugLog = true;
 
+    [Header("References")]
+    [SerializeField] private PlayerDefense playerDefense;
+    [SerializeField] private PlayerWireController playerWireController;
+    [SerializeField] private PlayerLockOnController lockOnController;
+    [SerializeField] private PlayerAnchorInstaller anchorInstaller;
+
     [Header("Action Lock")]
-    [SerializeField, Tooltip("°ø°İ ÀÔ·ÂÈÄ ÀÌµ¿ÀÔ·Â ¶ô")]
-    private float lightAttackLockDuration = 0.35f;
-    [SerializeField, Tooltip("°­°ø°İ ÀÔ·Â ÈÄ ÀÏ¹İ ÀÌµ¿ ¹æÁö ½Ã°£")]
+    [SerializeField, Tooltip("ì•½ê³µê²© ì…ë ¥ í›„ ê³µê²© ìƒíƒœë¥¼ ìœ ì§€í•˜ëŠ” ì‹œê°„ì…ë‹ˆë‹¤.")]
+    private float lightAttackLockDuration = 0.65f;
+
+    [SerializeField, Tooltip("ê°•ê³µê²© ì…ë ¥ í›„ ê³µê²© ìƒíƒœë¥¼ ìœ ì§€í•˜ëŠ” ì‹œê°„ì…ë‹ˆë‹¤.")]
     private float heavyAttackLockDuration = 0.55f;
 
-    [Header("Attack Combo")]
-    [SerializeField, Tooltip("¾à°ø°İ ÃÖ´ë ÄŞº¸ ¼ö")]
-    private int maxLightComboCount = 3;
-    [SerializeField, Tooltip("°ø°İ ÆÄ¶ó¹ÌÅÍ¸¦ À¯ÁöÇÏ´Â ½Ã°£")]
-    private float attackParameterResetDelay = 1.1f;
-    [SerializeField, Tooltip("°øÁß °ø°İ ÀÔ·ÂÈÄ ÀÏ¹İ ÀÌµ¿ ¹æÁö ½Ã°£")]
+    [SerializeField, Tooltip("ê³µì¤‘ ê³µê²© ì…ë ¥ í›„ ê³µê²© ìƒíƒœë¥¼ ìœ ì§€í•˜ëŠ” ì‹œê°„ì…ë‹ˆë‹¤.")]
     private float airAttackLockDuration = 0.75f;
+
+    [SerializeField, Tooltip("íŒ¨ë§ ì„±ê³µ í›„ ì¹´ìš´í„° ëª¨ì…˜ì˜ ë½ ì‹œê°„ì…ë‹ˆë‹¤.")]
+    private float parryCounterLockDuration = 0.65f;
+
+    [Header("Attack Combo")]
+    [SerializeField, Tooltip("ì•½ê³µê²© ìµœëŒ€ ì½¤ë³´ ìˆ˜ì…ë‹ˆë‹¤.")]
+    private int maxLightComboCount = 3;
+
+    [SerializeField, Tooltip("ê³µê²© íŒŒë¼ë¯¸í„°ë¥¼ ìœ ì§€í•˜ëŠ” ì‹œê°„ì…ë‹ˆë‹¤.")]
+    private float attackParameterResetDelay = 1.1f;
+
+    [Header("Attack Movement")]
+    [SerializeField, Tooltip("ê³µê²© ì¤‘ì—ë„ ì•½í•œ ì´ë™ì„ í—ˆìš©í• ì§€ ì—¬ë¶€ì…ë‹ˆë‹¤.")]
+    private bool allowMoveDuringAttack = true;
+
+    [SerializeField, Range(0f, 1f), Tooltip("ê³µê²© ì¤‘ ì´ë™ ì…ë ¥ ë°°ìœ¨ì…ë‹ˆë‹¤.")]
+    private float attackMoveInputMultiplier = 0.45f;
 
     private PlayerInputReader inputReader;
     private PlayerMovement playerMovement;
+
     private PlayerState currentState;
     private AttackType currentAttackType = AttackType.None;
     private int currentComboIndex;
-    private float attackParameterResetTimer;
 
+    private float attackParameterResetTimer;
     private float attackLockTimer;
-    /// <summary>
-    /// °ø°İÁß ÀÌµ¿ ¹æÁö
-    /// </summary>
+
     public PlayerState CurrentState => currentState;
-    // ¿ÜºÎ¿¡¼­ ÀĞ±â Àü¿ë
     public AttackType CurrentAttackType => currentAttackType;
     public int CurrentComboIndex => currentComboIndex;
     public bool IsAttackLocked => attackLockTimer > 0f;
 
-    public bool AttackStartedThisFrame {  get; private set; }
+    public bool AttackStartedThisFrame { get; private set; }
     public bool HeavyAttackStartedThisFrame { get; private set; }
 
     public bool DodgeStartedThisFrame { get; private set; }
     public bool DodgeCounterStartedThisFrame { get; private set; }
     public DodgeType StartedDodgeTypeThisFrame { get; private set; }
 
+    public bool ParryCounterStartedThisFrame { get; private set; }
 
     private void Awake()
     {
         inputReader = GetComponent<PlayerInputReader>();
         playerMovement = GetComponent<PlayerMovement>();
+
+        if (playerDefense == null)
+        {
+            playerDefense = GetComponent<PlayerDefense>();
+        }
+
+        if (playerWireController == null)
+        {
+            playerWireController = GetComponent<PlayerWireController>();
+        }
+
+        if (lockOnController == null)
+        {
+            lockOnController = GetComponent<PlayerLockOnController>();
+        }
+
+        if (anchorInstaller == null)
+        {
+            anchorInstaller = GetComponent<PlayerAnchorInstaller>();
+        }
 
         ChangeState(PlayerState.Idle);
     }
@@ -70,6 +108,12 @@ public class PlayerController : MonoBehaviour
         ResetFrameActionRequests();
         UpdateActionTimers();
 
+        UpdateLockOn();
+        UpdateDefense();
+        UpdateWire();
+        UpdateAnchorInstall();
+
+        TryStartParryCounter();
         TryStartDodgeCounter();
         TryStartAttack();
         TryStartDodge();
@@ -79,7 +123,6 @@ public class PlayerController : MonoBehaviour
         UpdateUtilityInputForTest();
     }
 
-
     private void ResetFrameActionRequests()
     {
         AttackStartedThisFrame = false;
@@ -88,9 +131,123 @@ public class PlayerController : MonoBehaviour
         DodgeStartedThisFrame = false;
         DodgeCounterStartedThisFrame = false;
         StartedDodgeTypeThisFrame = DodgeType.None;
+
+        ParryCounterStartedThisFrame = false;
     }
+
+    private void UpdateActionTimers()
+    {
+        UpdateAttackLockTimer();
+        UpdateAttackParameterResetTimer();
+    }
+
+    private void UpdateLockOn()
+    {
+        if (lockOnController == null)
+        {
+            playerMovement.SetLockOnTarget(null);
+            return;
+        }
+
+        lockOnController.TickLockOn();
+        playerMovement.SetLockOnTarget(lockOnController.CurrentTargetTransform);
+    }
+
+    private void UpdateDefense()
+    {
+        if (playerDefense == null)
+        {
+            return;
+        }
+
+        playerDefense.TickDefense(
+            inputReader.GuardPressed,
+            inputReader.GuardHeld,
+            inputReader.LightAttackPressed && !playerMovement.IsDodging
+        );
+    }
+
+    private void UpdateWire()
+    {
+        if (playerWireController == null)
+        {
+            return;
+        }
+
+        playerWireController.TickWire(CanStartWireAction());
+    }
+
+    private bool CanStartWireAction()
+    {
+        if (currentState == PlayerState.Dead ||
+            currentState == PlayerState.Knockdown ||
+            currentState == PlayerState.GetUp)
+        {
+            return false;
+        }
+
+        if (IsAttackLocked ||
+            playerMovement.IsDodging ||
+            playerMovement.IsAirAttacking ||
+            playerMovement.IsWireMoving ||
+            (playerWireController != null && playerWireController.HasActiveSuppressionLink))
+        {
+            return false;
+        }
+
+        if (anchorInstaller != null && anchorInstaller.IsInstalling)
+        {
+            return false;
+        }
+
+        if (playerDefense != null &&
+            (playerDefense.IsGuarding || playerDefense.IsParryActive))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private void UpdateAnchorInstall()
+    {
+        anchorInstaller?.TickInstall();
+    }
+
+    private void TryStartParryCounter()
+    {
+        if (playerMovement.IsDodging)
+        {
+            return;
+        }
+
+        if (playerDefense == null)
+        {
+            return;
+        }
+
+        if (!playerDefense.CounterStartedThisFrame)
+        {
+            return;
+        }
+
+        ParryCounterStartedThisFrame = true;
+        attackLockTimer = parryCounterLockDuration;
+        attackParameterResetTimer = attackParameterResetDelay;
+
+        currentAttackType = AttackType.None;
+        currentComboIndex = 0;
+
+        ChangeState(PlayerState.Attack);
+    }
+
     private void TryStartAttack()
     {
+        if (playerDefense != null && playerDefense.CounterStartedThisFrame)
+        {
+            return;
+        }
+
         bool lightAttackPressed = inputReader.LightAttackPressed;
         bool heavyAttackPressed = inputReader.HeavyAttackPressed;
         bool attackPressed = lightAttackPressed || heavyAttackPressed;
@@ -100,7 +257,12 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
-        if (playerMovement.IsDodging)
+        if (playerMovement.IsDodging || playerMovement.IsWireMoving)
+        {
+            return;
+        }
+
+        if (anchorInstaller != null && anchorInstaller.IsInstalling)
         {
             return;
         }
@@ -120,6 +282,52 @@ public class PlayerController : MonoBehaviour
         AttackType nextAttackType = DecideAttackType(lightAttackPressed, heavyAttackPressed);
 
         StartAttack(nextAttackType, 1, heavyAttackPressed);
+    }
+
+    private void TryStartDodge()
+    {
+        if (anchorInstaller != null && anchorInstaller.IsInstalling)
+        {
+            return;
+        }
+
+        if (IsAttackLocked)
+        {
+            return;
+        }
+
+        if (!inputReader.DodgePressed)
+        {
+            return;
+        }
+
+        if (playerMovement.TryStartDodge(inputReader.MoveInput, inputReader.BufferedSideInput))
+        {
+            DodgeStartedThisFrame = true;
+            StartedDodgeTypeThisFrame = playerMovement.CurrentDodgeType;
+
+            ChangeState(PlayerState.Dodge);
+        }
+    }
+
+    private void TryStartDodgeCounter()
+    {
+        bool attackPressed = inputReader.LightAttackPressed || inputReader.HeavyAttackPressed;
+
+        if (!attackPressed)
+        {
+            return;
+        }
+
+        if (!playerMovement.TryStartDodgeFollowUp(DodgeType.ForwardCounterThrust))
+        {
+            return;
+        }
+
+        DodgeCounterStartedThisFrame = true;
+        StartedDodgeTypeThisFrame = DodgeType.ForwardCounterThrust;
+
+        ChangeState(PlayerState.Dodge);
     }
 
     private bool CanQueueLightComboAfterLock(bool lightAttackPressed)
@@ -166,60 +374,12 @@ public class PlayerController : MonoBehaviour
         currentComboIndex = comboIndex;
 
         attackParameterResetTimer = attackParameterResetDelay;
-
         attackLockTimer = GetAttackLockDuration(attackType, isHeavyAttack);
 
         AttackStartedThisFrame = true;
         HeavyAttackStartedThisFrame = attackType == AttackType.Heavy;
 
         ChangeState(PlayerState.Attack);
-    }
-
-
-    private void TryStartDodge()
-    {
-        if (IsAttackLocked)
-        {
-            return;
-        }
-        if (!inputReader.DodgePressed)
-        {
-            return;
-        }
-
-        if (playerMovement.TryStartDodge(inputReader.MoveInput, inputReader.BufferedSideInput))
-        {
-            DodgeStartedThisFrame = true;
-            StartedDodgeTypeThisFrame = playerMovement.CurrentDodgeType;
-
-            ChangeState(PlayerState.Dodge);
-        }
-    }
-
-    private void TryStartDodgeCounter()
-    {
-        bool attackPressed = inputReader.LightAttackPressed || inputReader.HeavyAttackPressed;
-
-        if (!attackPressed)
-        {
-            return;
-        }
-
-        if (!playerMovement.TryStartDodgeFollowUp(DodgeType.ForwardCounterThrust))
-        {
-            return;
-        }
-
-        DodgeCounterStartedThisFrame = true;
-        StartedDodgeTypeThisFrame = DodgeType.ForwardCounterThrust;
-
-        ChangeState(PlayerState.Dodge);
-    }
-
-    private void UpdateActionTimers()
-    {
-        UpdateAttackLockTimer();
-        UpdateAttackParameterResetTimer();
     }
 
     private void UpdateAttackLockTimer()
@@ -258,7 +418,24 @@ public class PlayerController : MonoBehaviour
             playerMovement.Move(Vector2.zero, false, false);
             return;
         }
-        playerMovement.Move(inputReader.MoveInput, inputReader.SprintHeld, inputReader.JumpPressed);
+
+        Vector2 moveInput = inputReader.MoveInput;
+        bool sprintHeld = inputReader.SprintHeld;
+        bool jumpPressed = inputReader.JumpPressed;
+
+        if (IsAttackLocked)
+        {
+            moveInput *= attackMoveInputMultiplier;
+            sprintHeld = false;
+            jumpPressed = false;
+        }
+
+        playerMovement.Move(
+            moveInput,
+            sprintHeld,
+            jumpPressed,
+            inputReader.WireFastDescendHeld
+        );
     }
 
     private void UpdateStateForTest()
@@ -268,21 +445,39 @@ public class PlayerController : MonoBehaviour
             return;
         }
 
+        if (playerMovement.IsWireMoving)
+        {
+            ChangeState(PlayerState.WireMove);
+            return;
+        }
+
         if (playerMovement.IsDodging)
         {
             ChangeState(PlayerState.Dodge);
             return;
         }
 
-        if (IsAttackLocked)
+        if (playerDefense != null && playerDefense.IsParryActive)
+        {
+            ChangeState(PlayerState.Parry);
+            return;
+        }
+
+        if (playerDefense != null && playerDefense.IsGuarding)
+        {
+            ChangeState(PlayerState.Guard);
+            return;
+        }
+
+        if (playerMovement.IsAirAttacking)
         {
             ChangeState(PlayerState.Attack);
             return;
         }
 
-        if (inputReader.GuardHeld)
+        if (IsAttackLocked)
         {
-            ChangeState(PlayerState.Guard);
+            ChangeState(PlayerState.Attack);
             return;
         }
 
@@ -306,7 +501,7 @@ public class PlayerController : MonoBehaviour
 
         if (playerMovement.IsFalling)
         {
-             ChangeState(PlayerState.Fall);
+            ChangeState(PlayerState.Fall);
             return;
         }
 
@@ -319,26 +514,43 @@ public class PlayerController : MonoBehaviour
         ChangeState(PlayerState.Idle);
     }
 
-    
-
     private bool CanUseInputMovement()
     {
         if (currentState == PlayerState.Dead)
         {
             return false;
         }
+
         if (currentState == PlayerState.Knockdown)
         {
             return false;
         }
+
         if (currentState == PlayerState.GetUp)
         {
             return false;
         }
-        if (IsAttackLocked)
+
+        if (playerMovement.IsDodging)
         {
             return false;
         }
+
+        if (playerMovement.IsAirAttacking)
+        {
+            return false;
+        }
+
+        if (anchorInstaller != null && anchorInstaller.IsInstalling)
+        {
+            return false;
+        }
+
+        if (IsAttackLocked && !allowMoveDuringAttack)
+        {
+            return false;
+        }
+
         return true;
     }
 
@@ -356,11 +568,13 @@ public class PlayerController : MonoBehaviour
         {
             return;
         }
+
         PlayerState previousState = currentState;
         currentState = nextState;
+
         if (showDebugLog)
         {
-            Debug.Log($"player State changed : {previousState} -> {currentState}");
+            Debug.Log($"Player State changed : {previousState} -> {currentState}");
         }
     }
 
@@ -414,7 +628,6 @@ public class PlayerController : MonoBehaviour
 
         currentComboIndex++;
         attackParameterResetTimer = attackParameterResetDelay;
-
         attackLockTimer = Mathf.Max(attackLockTimer, lightAttackLockDuration);
 
         if (showDebugLog)
@@ -422,5 +635,4 @@ public class PlayerController : MonoBehaviour
             Debug.Log($"Light Combo Queued : {currentComboIndex}");
         }
     }
-
 }
